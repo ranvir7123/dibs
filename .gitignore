@@ -1,0 +1,26 @@
+# packages
+/node_modules
+
+# test output
+/coverage
+
+# Next.js build files (.next, and each lane's own .next-a, .next-b ...)
+/.next*/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# keys and settings that must never be shared
+.env*
+!.env.example
+
+# the local database (embedded Postgres) and uploaded files
+/.data*/
+
+# tools' scratch folders
+/.superpowers/
+.vercel
+.DS_Store
+*.pem
+npm-debug.log*

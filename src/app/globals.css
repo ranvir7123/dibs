@@ -1,0 +1,447 @@
+/*
+  The look of Dibs. Dark only.
+
+  Part 1 is the CSS of the approved drawing (round8/screens/index.html), kept
+  as it was drawn. The only changes are noted on the line: the fonts are
+  loaded by Next.js, and tabs and side links may be real links or buttons.
+
+  Part 2, further down, is what lane C added for screens and states the
+  drawing does not show. It uses the same colours, corners and sizes.
+*/
+
+/* ================= Part 1: from the approved drawing ================= */
+
+:root {
+  color-scheme: dark;
+  --page: #0a0a0a;
+  --app: #101010;
+  --card: #161616;
+  --inset: #1e1e1d;
+  --line: #2a2a28;
+  --text: #f4f1ea;
+  --mute: #a09c93;
+  --paid: #dcb765;   /* money paid out */
+  --held: #c4bfb3;   /* money still locked in PayPal */
+  --stop: #f0616d;   /* blocked or failed */
+  --blue: #dcb765;
+  --orange: #a09c93;
+  --r-card: 18px;
+  --r-in: 12px;
+  --sans: var(--font-geist), "Geist", "Segoe UI", system-ui, sans-serif;
+  --serif: var(--font-serif), "Instrument Serif", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html { background: var(--page); }
+body { margin: 0; padding: 32px 16px 64px; background: var(--page); color: var(--text); font: 400 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4, p, ul, dl, dd { margin: 0; }
+ul { padding: 0; list-style: none; }
+svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+svg.i.f { fill: currentColor; stroke: none; }
+.num { font-variant-numeric: tabular-nums; }
+.wrap { max-width: 1240px; margin: 0 auto; }
+
+/* ---------- app shell ---------- */
+.win { display: grid; grid-template-columns: 216px 1fr; background: var(--app); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; }
+.side { border-right: 1px solid var(--line); padding: 20px 14px 24px; }
+.logo { display: block; font: italic 400 32px/1 var(--serif); padding: 2px 10px 18px; }
+.side h4 { font: 500 12px/1 var(--sans); color: var(--mute); padding: 14px 10px 8px; }
+.side a { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: var(--mute); font-size: 14px; font-weight: 500; text-decoration: none; }
+.side a.on { background: var(--inset); color: var(--text); }
+.main { padding: 24px 24px 28px; min-width: 0; }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: var(--inset); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.pill.paid { background: rgba(220,183,101,.13); color: var(--paid); }
+.pill.held { background: rgba(244,241,234,.13); color: var(--held); }
+.pill.stop { background: rgba(240,97,109,.13); color: var(--stop); }
+.pill.wait { color: var(--mute); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 999px; border: 1px solid transparent; font: 600 14px/1 var(--sans); cursor: pointer; white-space: nowrap; }
+.btn.main-b { background: var(--text); color: #0a0a0a; }
+.btn.ghost { background: transparent; border-color: var(--line); color: var(--text); }
+.btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* Tabs are links here, so "span" in the drawing became "any child". */
+.tabs { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+.tabs > * { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 10px; font-size: 14px; font-weight: 500; color: var(--mute); text-decoration: none; }
+.tabs > * b { font-weight: 500; opacity: .6; }
+.tabs > .on { background: var(--inset); color: var(--text); }
+
+.avatar { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 600; font-size: 15px; color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+.a1 { background: var(--inset); }
+.a2 { background: var(--inset); }
+.a3 { background: var(--inset); }
+.a4 { background: var(--inset); }
+
+/* money bar: green is paid, gold is still held */
+.bar { height: 8px; border-radius: 999px; background: rgba(244,241,234,.13); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--paid); border-radius: 999px; }
+.bar.big { height: 12px; }
+
+/* ---------- 1. the board ---------- */
+.hello h1 { font: 600 28px/1.2 var(--sans); letter-spacing: -0.01em; }
+.hello p { color: var(--mute); margin-top: 6px; max-width: 60ch; }
+.board-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 22px 0 18px; }
+.jobs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.job { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.job-top { display: flex; align-items: center; gap: 10px; }
+.job-top .avatar { width: 32px; height: 32px; font-size: 13px; }
+.job-top .who { font-size: 13px; color: var(--mute); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-top .pill { height: 26px; padding: 0 10px; font-size: 12px; }
+.job h3 { font: 600 17px/1.3 var(--sans); min-height: 44px; }
+.facts { background: var(--inset); border-radius: var(--r-in); padding: 2px 14px; }
+.facts div { display: flex; gap: 10px; padding: 10px 0; font-size: 13px; }
+.facts div + div { border-top: 1px solid var(--line); }
+.facts svg { margin-top: 2px; color: var(--mute); }
+.facts small { display: block; color: var(--mute); font-size: 12px; }
+.facts .strong { color: var(--paid); }
+.job .money { margin-top: auto; }
+.money-row { display: flex; justify-content: space-between; font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+.money-row .p { color: var(--paid); }
+.money-row .h { color: var(--held); }
+.job .btn { width: 100%; height: 42px; }
+
+/* ---------- 2. post a job ---------- */
+.post { display: grid; grid-template-columns: 5fr 6fr; gap: 20px; align-items: start; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); }
+.ask { padding: 22px; }
+.ask h1 { font: 600 24px/1.25 var(--sans); letter-spacing: -0.01em; }
+.typed { margin-top: 16px; min-height: 124px; padding: 16px; border-radius: var(--r-in); background: var(--inset); border: 1px solid var(--blue); font-size: 16px; }
+.ask > p { color: var(--mute); font-size: 13px; margin-top: 12px; }
+.ask h4 { font: 500 13px/1 var(--sans); color: var(--mute); margin: 22px 0 10px; }
+.tries { display: grid; gap: 8px; }
+.tries > * { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: 1px solid var(--line); border-radius: var(--r-in); font-size: 14px; }
+.tries svg { color: var(--mute); }
+.jc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.jc-head h3 { font: 600 17px/1.3 var(--sans); }
+.jc-row { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 14px 22px; border-bottom: 1px solid var(--line); }
+.jc-row .ic { width: 34px; height: 34px; border-radius: 10px; background: var(--inset); display: grid; place-items: center; color: var(--mute); }
+.jc-row small { display: block; font-size: 12px; color: var(--mute); }
+.jc-row p { font-size: 14px; }
+.jc-row p + p { color: var(--mute); font-size: 13px; margin-top: 3px; }
+.jc-row .warn { color: var(--held); font-weight: 600; }
+.jc-foot { padding: 18px 22px 20px; }
+.jc-foot .btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.jc-foot .btns .main-b { flex: 1; min-width: 220px; }
+.jc-foot p { font-size: 13px; color: var(--mute); margin-top: 12px; }
+
+/* ---------- 3. a job while it runs ---------- */
+.run-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.run-head h1 { font: 600 24px/1.25 var(--sans); letter-spacing: -0.01em; }
+.run-head p { color: var(--mute); font-size: 14px; margin-top: 2px; }
+.vault { padding: 20px 22px 22px; margin: 20px 0; }
+.sums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: end; margin-bottom: 14px; }
+.sums small { display: block; font-size: 13px; color: var(--mute); }
+.sums b { display: block; font: 600 34px/1.15 var(--sans); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.sums .p { text-align: center; }
+.sums .p b { color: var(--paid); }
+.sums .h { text-align: right; }
+.sums .h b { color: var(--held); }
+.list-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.list-top p { font-size: 13px; color: var(--mute); }
+
+/* one result card: who, the thing they posted, the numbers, the checks */
+.res { margin-top: 16px; }
+.res-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; }
+.res-head .name { flex: 1; min-width: 0; }
+.res-head .name b { display: block; font: 600 16px/1.3 var(--sans); }
+.res-head .name span { font-size: 13px; color: var(--mute); }
+.res-body { display: grid; grid-template-columns: 208px 1fr 332px; border-top: 1px solid var(--line); }
+.res-body.wide { grid-template-columns: 340px 1fr 300px; }
+.res-body > * { min-width: 0; }
+.clip { position: relative; min-height: 372px; background: radial-gradient(120% 80% at 30% 20%, #2b2a27 0%, #1b1b1a 55%, #111110 100%); display: flex; flex-direction: column; justify-content: space-between; padding: 12px; }
+.clip.alt { background: radial-gradient(120% 80% at 70% 25%, #2f2b24 0%, #1c1b19 55%, #111110 100%); }
+.clip.game { min-height: 0; aspect-ratio: 16 / 10; align-self: start; margin: 18px 0 18px 20px; border-radius: var(--r-in); background: radial-gradient(110% 90% at 50% 30%, #2b2a27 0%, #1b1b1a 60%, #111110 100%); }
+.clip .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.chip-d { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 999px; background: rgba(10,10,10,.62); font-size: 12px; font-weight: 500; }
+.chip-d.round { width: 30px; padding: 0; justify-content: center; }
+.clip .scrub { height: 3px; border-radius: 2px; background: rgba(255,255,255,.22); margin-bottom: 10px; }
+.clip .scrub i { display: block; width: 4px; height: 9px; margin-top: -3px; border-radius: 2px; background: #fff; }
+.clip .mid { align-self: center; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 999px; background: rgba(10,10,10,.62); font-size: 13px; font-weight: 500; }
+
+.stats { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.counts { display: flex; flex-wrap: wrap; gap: 8px; }
+.count { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: 999px; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.count.v { color: var(--blue); background: rgba(220,183,101,.12); box-shadow: inset 0 0 0 1.5px rgba(220,183,101,.55); }
+.count.l { color: var(--text); background: var(--inset); }
+.count.c { color: var(--text); background: var(--inset); }
+.count.k { color: var(--text); background: var(--inset); }
+.count.l svg, .count.c svg, .count.k svg { color: var(--mute); }
+.chart { background: var(--inset); border-radius: var(--r-in); padding: 12px 12px 8px; }
+.chart svg { display: block; width: 100%; height: 132px; }
+.chart .ax { display: flex; justify-content: space-between; font-size: 12px; color: var(--mute); padding: 6px 34px 0 2px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.kv { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: var(--r-in); font-size: 14px; }
+.kv span { color: var(--mute); }
+.kv b { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.checks { border-left: 1px solid var(--line); padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+.checks-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.checks-top h3 { font: 600 16px/1.3 var(--sans); }
+.checks-top span { font-size: 13px; color: var(--mute); }
+.checks > p { font-size: 14px; color: var(--mute); }
+.verdict { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+.verdict.ok { color: var(--paid); }
+.verdict.no { color: var(--stop); }
+.chk { border: 1px solid var(--line); border-radius: var(--r-in); }
+.chk-row { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px 0 14px; font-size: 14px; font-weight: 500; }
+.chk-row .lab { flex: 1; }
+.chk-row svg { color: var(--mute); }
+.score { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; font-variant-numeric: tabular-nums; color: var(--paid); background: rgba(220,183,101,.13); }
+.score.no { color: var(--stop); background: rgba(240,97,109,.13); }
+.chk-more { border-top: 1px solid var(--line); padding: 12px 14px; font-size: 13px; color: var(--mute); }
+.chk-more b { display: flex; align-items: center; gap: 8px; color: var(--stop); font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.outcome { margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 8px 16px; border-radius: 999px; font: 600 14px/1.3 var(--sans); text-align: center; }
+.outcome.ok { background: var(--paid); color: #1c1503; }
+.outcome.no { background: rgba(240,97,109,.14); color: var(--stop); }
+.ref { font-size: 12px; color: var(--mute); text-align: center; font-variant-numeric: tabular-nums; }
+.res-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 13px 20px; border-top: 1px solid var(--line); font-size: 14px; }
+.res-foot svg { color: var(--paid); }
+.res-foot.no svg { color: var(--stop); }
+.res-foot b { font-weight: 600; }
+.res-foot span { color: var(--mute); }
+
+/* 4. the test job: rules with the moment each was seen */
+.rules { padding: 18px 20px; display: grid; gap: 8px; align-content: start; }
+.rules h3 { font: 600 16px/1.3 var(--sans); margin-bottom: 4px; }
+.rule { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: start; padding: 11px 14px; border: 1px solid var(--line); border-radius: var(--r-in); font-size: 14px; }
+.rule svg { margin-top: 3px; color: var(--paid); }
+.rule.no svg { color: var(--stop); }
+.rule small { display: block; color: var(--mute); font-size: 13px; }
+.rule time { font-size: 13px; color: var(--mute); font-variant-numeric: tabular-nums; padding: 1px 8px; border-radius: 6px; background: var(--inset); }
+.sumline { display: flex; justify-content: space-between; font-size: 14px; padding: 9px 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.sumline span { color: var(--mute); }
+.sumline b { font-weight: 600; }
+
+@media (max-width: 1100px) {
+  .res-body, .res-body.wide { grid-template-columns: 208px 1fr; }
+  .res-body.wide { grid-template-columns: 1fr; }
+  .clip.game { margin: 18px 20px 0; }
+  .checks { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); }
+  .jobs { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 860px) {
+  .win { grid-template-columns: 1fr; }
+  .side { display: flex; align-items: center; gap: 4px; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--line); overflow: hidden; }
+  .side h4, .side a:not(.keep) { display: none; }
+  .logo { padding: 0 10px 0 4px; font-size: 28px; }
+  .post { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  body { padding: 20px 12px 48px; }
+  .main { padding: 18px 14px 20px; }
+  .jobs { grid-template-columns: 1fr; }
+  .job h3 { min-height: 0; }
+  .hello h1 { font-size: 24px; }
+  .res-body { grid-template-columns: 1fr; }
+  .clip { min-height: 300px; }
+  .sums b { font-size: 24px; }
+  .sums small { font-size: 12px; line-height: 1.3; }
+  .pair { grid-template-columns: 1fr; }
+  .tabs > * { padding: 0 10px; font-size: 13px; }
+  .ask, .vault { padding: 18px 16px; }
+  .jc-head, .jc-row, .jc-foot { padding-left: 16px; padding-right: 16px; }
+}
+
+/* ================= Part 2: added by lane C ================= */
+
+a { color: inherit; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.hide { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.icons { position: absolute; width: 0; height: 0; }
+
+/* The window fills the screen even when a page is short. */
+.win { min-height: calc(100vh - 96px); }
+/* The word "Dibs" is a link home, so it is told apart from the side bar's other links. */
+.side a.logo { display: block; height: auto; padding: 2px 10px 18px; border-radius: 0; background: none; color: var(--text); font: italic 400 32px/1 var(--serif); }
+
+/* Links and buttons that look like the drawing's buttons, tabs and pills. */
+a.btn, a.pill { text-decoration: none; }
+.btn { text-decoration: none; }
+.btn.main-b:hover { background: #fff; }
+.btn.ghost:hover, .tabs > a:hover, .side a:hover { background: var(--inset); color: var(--text); }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .55; cursor: default; }
+.btn.small { height: 36px; padding: 0 14px; font-size: 13px; }
+.side a:focus-visible, .tabs > a:focus-visible, a.pill:focus-visible, .tries > button:focus-visible, .pick:focus-visible, .rule:focus-visible, .chk summary:focus-visible, .clip a:focus-visible, .textlink:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.textlink { color: var(--text); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.textlink:hover { text-decoration-color: var(--mute); }
+
+/* Very long words (a title with no spaces, a long link) wrap instead of pushing the page sideways. */
+h1, h3, p, small, b, .who, .kv, .sumline, .outcome, .tries > * { overflow-wrap: anywhere; }
+.job, .job > *, .post > *, .who-grid > *, .hand > *, .stack > * { min-width: 0; }
+.job h3 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.job h3 a { text-decoration: none; }
+.job h3 a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.res-head .name b, .res-head .name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.res-head .name span { line-height: 22.5px; } /* the height this line has in the drawing */
+.run-head > div { min-width: 0; flex: 1 1 320px; }
+.facts p, .jc-row > div, .rule p { min-width: 0; }
+.jc-head h3 { min-width: 0; }
+.kv b { text-align: right; }
+
+/* ---------- side bar: who is using Dibs, and the test-mode note ---------- */
+.side { display: flex; flex-direction: column; }
+.side-foot { margin-top: auto; padding-top: 18px; display: grid; gap: 10px; }
+.side a.me { height: auto; padding: 8px 10px; border: 1px solid var(--line); color: var(--text); }
+.me .avatar { width: 28px; height: 28px; font-size: 12px; }
+.me > span:not(.avatar) { min-width: 0; flex: 1; }
+.me b { display: block; font-weight: 500; font-size: 13px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me small { display: block; font-size: 12px; line-height: 1.3; color: var(--mute); }
+.testmode { font-size: 12px; line-height: 1.4; color: var(--mute); padding: 0 10px; }
+
+/* ---------- page heads and small pieces shared by the new screens ---------- */
+.head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.head > div { min-width: 0; flex: 1 1 280px; }
+.head h1 { font: 600 24px/1.25 var(--sans); letter-spacing: -0.01em; }
+.head p { color: var(--mute); font-size: 14px; margin-top: 2px; max-width: 64ch; }
+.back { display: inline-flex; align-items: center; gap: 6px; color: var(--mute); font-size: 13px; font-weight: 500; text-decoration: none; margin-bottom: 12px; }
+.back:hover { color: var(--text); }
+.section { font: 600 16px/1.3 var(--sans); margin: 28px 0 12px; }
+.pad { padding: 20px 22px 22px; }
+.stack { display: grid; gap: 16px; }
+
+/* A message in plain words: something is waiting, not ready, or went wrong. */
+.notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-in); background: var(--inset); font-size: 14px; }
+.notice svg { margin-top: 3px; color: var(--mute); }
+.notice.warn svg { color: var(--held); }
+.notice.stop svg { color: var(--stop); }
+.notice.ok svg { color: var(--paid); }
+.notice p { min-width: 0; }
+.notice b { display: block; font-weight: 600; }
+
+/* Nothing here yet. */
+.empty { display: grid; justify-items: center; gap: 6px; padding: 44px 20px; text-align: center; border: 1px dashed var(--line); border-radius: var(--r-card); }
+.empty .ic { width: 44px; height: 44px; border-radius: 14px; background: var(--inset); display: grid; place-items: center; color: var(--mute); margin-bottom: 8px; }
+.empty h3 { font: 600 17px/1.3 var(--sans); }
+.empty p { color: var(--mute); font-size: 14px; max-width: 46ch; }
+.empty .btn { margin-top: 12px; }
+
+/* Loading: grey blocks in the shape of what is coming. */
+.sk { display: block; border-radius: 8px; background: var(--inset); animation: sk 1.4s ease-in-out infinite; }
+.sk.t { height: 14px; }
+.sk.h { height: 28px; border-radius: 10px; }
+.sk.round { border-radius: 999px; }
+@keyframes sk { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+
+/* ---------- forms ---------- */
+.field { display: grid; gap: 6px; }
+.field label, .field .label { font-size: 13px; font-weight: 500; color: var(--mute); }
+.field small { font-size: 12px; color: var(--mute); }
+.input { width: 100%; height: 46px; padding: 0 14px; border-radius: var(--r-in); background: var(--inset); border: 1px solid var(--line); font-size: 15px; outline: none; }
+.input::placeholder, .typed::placeholder { color: var(--mute); opacity: .7; }
+.input:focus-visible { border-color: var(--blue); }
+textarea.typed { display: block; width: 100%; resize: vertical; line-height: 1.5; border-color: var(--line); outline: none; }
+textarea.typed:focus-visible { border-color: var(--blue); }
+.ask .btn { margin-top: 14px; }
+.ask .notice { margin-top: 14px; }
+.tries > button { width: 100%; text-align: left; background: transparent; color: var(--text); }
+.tries > button:hover { background: var(--inset); }
+.jc-foot .notice { margin-bottom: 14px; }
+.jc-foot .notice p { margin-top: 0; font-size: 14px; color: var(--text); }
+.jc-wait { display: grid; justify-items: center; gap: 6px; padding: 56px 24px; text-align: center; }
+.jc-wait .ic { width: 44px; height: 44px; border-radius: 14px; background: var(--inset); display: grid; place-items: center; color: var(--mute); margin-bottom: 8px; }
+.jc-wait h3 { font: 600 17px/1.3 var(--sans); }
+.jc-wait p { color: var(--mute); font-size: 14px; max-width: 40ch; }
+
+/* ---------- result card: pieces the drawing does not show ---------- */
+.res-body.plain { grid-template-columns: 1fr 332px; }
+.pill.checking { color: var(--mute); background: var(--inset); }
+.outcome.wait { background: var(--inset); color: var(--mute); }
+.outcome.hold { background: rgba(244,241,234,.13); color: var(--held); }
+.clip a.mid, .clip button.mid { color: var(--text); text-decoration: none; border: 0; }
+.clip a.mid:hover { background: rgba(10,10,10,.82); }
+.clip video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.clip > * { position: relative; }
+.chart .plot { position: relative; padding-right: 34px; }
+.chart .plot svg path.ln { vector-effect: non-scaling-stroke; }
+.chart .yax { position: absolute; top: 0; right: 0; width: 28px; height: 132px; font-size: 11px; line-height: 1; color: var(--mute); font-variant-numeric: tabular-nums; }
+.chart .yax span { position: absolute; left: 0; transform: translateY(-50%); }
+.chart .none { display: grid; place-items: center; height: 132px; color: var(--mute); font-size: 13px; text-align: center; padding: 0 12px; }
+details.chk > summary { list-style: none; cursor: pointer; border-radius: var(--r-in); }
+details.chk > summary::-webkit-details-marker { display: none; }
+details.chk[open] > summary .turn { transform: rotate(180deg); }
+.chk-more b.fine { color: var(--text); }
+button.rule { width: 100%; text-align: left; background: transparent; color: var(--text); }
+button.rule:hover, button.rule.on { background: var(--inset); }
+button.rule.on time { background: var(--card); }
+.rule p { margin: 0; }
+.checks form { display: grid; }
+.checks .btn { width: 100%; }
+
+/* My work: the job a result belongs to sits above its card. */
+.res-head a.name { text-decoration: none; }
+.res-head a.name:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.todo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-top: 1px solid var(--line); }
+.todo p { flex: 1 1 260px; min-width: 0; font-size: 14px; color: var(--mute); }
+.todo p b { display: block; color: var(--text); font-weight: 600; }
+
+/* A tracked link the worker shares. */
+.linkbox { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 6px 6px 6px 14px; border-radius: var(--r-in); background: var(--inset); border: 1px solid var(--line); }
+.linkbox code { flex: 1; min-width: 0; font: 500 14px/1.4 var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linkbox svg { color: var(--mute); }
+
+/* Rows of money or jobs. */
+.rows > * { display: flex; align-items: center; gap: 12px; padding: 14px 20px; font-size: 14px; text-decoration: none; }
+.rows > * + * { border-top: 1px solid var(--line); }
+.rows .grow { flex: 1; min-width: 0; }
+.rows .grow b { display: block; font-weight: 600; }
+.rows .grow > span { display: block; font-size: 13px; color: var(--mute); }
+.rows .amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.rows .amt small { display: block; font-size: 12px; font-weight: 400; color: var(--mute); }
+.rows .amt.p { color: var(--paid); }
+.rows a:hover { background: rgba(255,255,255,.02); }
+.rows .avatar { width: 32px; height: 32px; font-size: 13px; }
+
+/* Choosing who you are. */
+.shortcuts { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 20px; }
+.who-grid { display: grid; grid-template-columns: 6fr 5fr; gap: 20px; align-items: start; }
+.picks { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.pick { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-in); background: transparent; text-align: left; }
+.pick:hover { background: var(--inset); }
+.pick.on { border-color: var(--blue); background: var(--inset); }
+.pick .avatar { width: 32px; height: 32px; font-size: 13px; }
+.pick > span:not(.avatar) { min-width: 0; flex: 1; }
+.pick b { display: block; font-weight: 500; font-size: 14px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick small { display: block; font-size: 12px; line-height: 1.3; color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick > svg { color: var(--blue); }
+.form { display: grid; gap: 14px; }
+.sub { color: var(--mute); font-size: 13px; }
+.panel h3.t { font: 600 17px/1.3 var(--sans); }
+.panel h3.t + .sub { margin: 4px 0 16px; }
+
+/* Handing in. */
+.hand { display: grid; grid-template-columns: 6fr 5fr; gap: 20px; align-items: start; }
+.drop { display: grid; justify-items: center; gap: 6px; padding: 28px 16px; border: 1px dashed var(--line); border-radius: var(--r-in); background: var(--inset); text-align: center; cursor: pointer; }
+.drop:hover, .drop:focus-within { border-color: var(--blue); }
+.drop b { font-weight: 600; font-size: 14px; }
+.drop small { font-size: 12px; color: var(--mute); }
+.drop svg { color: var(--mute); width: 20px; height: 20px; }
+.steps { display: grid; gap: 8px; }
+.steps li { display: grid; grid-template-columns: 18px 1fr; gap: 10px; padding: 11px 14px; border: 1px solid var(--line); border-radius: var(--r-in); font-size: 14px; }
+.steps svg { margin-top: 3px; color: var(--mute); }
+.steps small { display: block; color: var(--mute); font-size: 13px; }
+
+@media (max-width: 1100px) {
+  .res-body.plain { grid-template-columns: 1fr; }
+}
+@media (max-width: 860px) {
+  .win { min-height: 0; }
+  .side { flex-direction: row; }
+  .side a.logo { padding: 0 10px 0 4px; font-size: 28px; }
+  .side-foot { margin: 0 0 0 auto; padding: 0; }
+  .side a.me { display: flex; padding: 4px; border: 0; border-radius: 999px; }
+  .me > span:not(.avatar), .testmode { display: none; }
+  .me .avatar { width: 30px; height: 30px; }
+  .who-grid, .hand { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .pad { padding: 18px 16px; }
+  .picks { grid-template-columns: 1fr; }
+  .rows > * { padding: 12px 16px; }
+  .res-head, .res-foot, .todo { padding-left: 16px; padding-right: 16px; }
+  .stats, .checks, .rules { padding-left: 16px; padding-right: 16px; }
+  .clip.game { margin: 16px 16px 0; }
+  .side { padding: 10px 12px; }
+  .side a.keep { padding: 0 8px; }
+  .head h1, .run-head h1, .ask h1 { font-size: 22px; }
+}

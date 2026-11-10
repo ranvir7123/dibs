@@ -1,0 +1,33 @@
+﻿=== hold-pay-letgo at 2026-11-10T15:12:11.186Z (PayPal test mode, pretend money) ===
+Worker's PayPal email comes from the earlier test kit's receiver (PAYPAL_TEST_WORKER_EMAIL is not set yet).
+Step 1: hold $50.00
+  PayPal order 26213656U46087946 (paid with PayPal's test card, because nobody is here to approve)
+  Held $50.00  done  PayPal reference (the hold's number) 2GS20795EB667054F
+  Calling confirmHold again gives the same record: true
+Step 2: the result has earned $4.00 (2,000 views)
+  payWorker: paid $4.00
+    taken from the hold: $4.00  done  PayPal reference 19R821326U842973G
+    sent to the worker:  $4.00  done  PayPal reference 39B879588H5190153
+    took 21.7 seconds
+Step 3: the result has now earned $12.40 (6,200 views), and payWorker is called TWICE at the same moment
+  first call : paid $8.40
+    taken from the hold: $8.40  done  PayPal reference 8JS59695JM236205D
+    sent to the worker:  $8.40  done  PayPal reference 0ET094069Y309030R
+  second call: paid $0.00
+    nothing was owed, so nothing moved
+    took 22.1 seconds. Paid by the two calls together: $8.40 (must be $8.40)
+  a third call afterwards: paid $0.00
+    nothing was owed, so nothing moved
+Step 4: let the rest go
+  Let go $37.60  done  PayPal reference (the hold's number) 2GS20795EB667054F
+  PayPal's own record of the hold now says: VOIDED
+Every money move in the database for this job:
+  hold     $50.00  done     2GS20795EB667054F
+  take      $4.00  done     19R821326U842973G
+  payout    $4.00  done     39B879588H5190153
+  take      $8.40  done     8JS59695JM236205D
+  payout    $8.40  done     0ET094069Y309030R
+  let_go   $37.60  done     2GS20795EB667054F
+Job money: locked $50.00, paid $12.40, held $0.00, let go $37.60
+Result status: paid. Job status: ended.
+RESULT: PASSED

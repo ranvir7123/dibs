@@ -1,0 +1,12 @@
+﻿=== safety-checks at 2026-11-10T15:13:06.186Z (PayPal test mode) ===
+A. The same take sent twice (same request id)
+  First answer:  COMPLETED 897557564V7563231
+  Second answer: COMPLETED 897557564V7563231
+  Same PayPal reference both times: true. Hold now: PARTIALLY_CAPTURED
+  A new request id with the SAME invoice number (what a careless retry would send):
+    PayPal refused: DUPLICATE_TRANSACTION, UNPROCESSABLE_ENTITY
+  Hold let go.
+  Letting the same hold go a second time: VOIDED (no error)
+B. The same payout sent twice (same batch id)
+  First send: accepted, PayPal batch V5597DX7V7WZW
+  Second send: ACCEPTED, PayPal batch V5597DX7V7WZW  <-- same batch number means PayPal did not pay twice: true
