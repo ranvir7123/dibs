@@ -60,6 +60,10 @@ export default async function YouPage({ searchParams }: { searchParams: Promise<
             <Icon name="people" />
             Jobs I posted
           </Link>
+          <Link href="/ledger" className="btn ghost small">
+            <Icon name="file" />
+            Ledger
+          </Link>
         </nav>
       ) : null}
 

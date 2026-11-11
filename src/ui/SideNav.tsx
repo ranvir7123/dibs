@@ -19,7 +19,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: "Work",
     items: [
-      { href: "/", label: "Jobs", icon: "jobs", dock: true, on: (p) => p === "/" },
+      { href: "/", label: "Jobs", icon: "jobs", dock: true, on: (p) => p === "/" || p.startsWith("/jobs") },
       { href: "/work", label: "My work", icon: "list", dock: true, on: (p) => p.startsWith("/work") },
       { href: "/payouts", label: "Payouts", icon: "wallet", dock: true, on: (p) => p.startsWith("/payouts") },
     ],
@@ -28,9 +28,8 @@ const GROUPS: { title: string; items: Item[] }[] = [
     title: "Hire",
     items: [
       { href: "/post", label: "Post a job", icon: "plus", dock: true, on: (p) => p.startsWith("/post") },
-      // "People" is lit while a poster looks at a job's results.
-      { href: "/people", label: "People", icon: "people", dock: true, on: (p) => p.startsWith("/people") || p.startsWith("/jobs") },
-      // Every money move on the jobs a business posted. On a phone it is reached from the People screen.
+      { href: "/people", label: "People", icon: "people", dock: true, on: (p) => p.startsWith("/people") },
+      // Every money move on the jobs a business posted. On a phone it is reached from the People screen and from the round person button.
       { href: "/ledger", label: "Ledger", icon: "file", on: (p) => p.startsWith("/ledger") },
     ],
   },
