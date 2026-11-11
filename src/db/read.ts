@@ -129,6 +129,12 @@ export async function getPerson(personId: string): Promise<Person | null> {
   return rows[0] ?? null;
 }
 
+/** Everyone who has joined Dibs, newest first. For the "who are you" screen, so a person who has done nothing yet can still be picked. */
+export async function getPeople(): Promise<Person[]> {
+  const db = await getDb();
+  return db.select().from(people).orderBy(desc(people.createdAt), asc(people.id));
+}
+
 /** A job's money: locked, paid, still held, let go. All zero for an unknown or draft job. */
 export async function getJobMoney(jobId: string): Promise<JobMoney> {
   const db = await getDb();

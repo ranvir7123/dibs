@@ -46,6 +46,13 @@ export function count(value: number): string {
   return value.toLocaleString("en-US");
 }
 
+/** A line written by AI or a person, ending in exactly one full stop (so "…views." never becomes "…views.."). */
+export function sentence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
 /** "1 rule", "4 rules", "1,200 views". */
 export function plural(value: number, word: string, many: string = `${word}s`): string {
   return `${count(value)} ${value === 1 ? word : many}`;
@@ -64,7 +71,7 @@ export function daysUntil(end: Date, now: Date = new Date()): number {
 }
 
 export function daysLeftLabel(daysLeft: number): string {
-  return daysLeft <= 0 ? "Ends today" : `${daysLeft}D left`;
+  return daysLeft <= 0 ? "Ends today" : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`;
 }
 
 /** "2 minutes ago". */

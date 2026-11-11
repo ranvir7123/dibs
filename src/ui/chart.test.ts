@@ -19,6 +19,18 @@ describe("chart", () => {
     expect(chartModel([{ at: now, value: 5 }], now)).toBeNull();
   });
 
+  it("labels readings a few minutes apart with the minutes, so the labels differ", () => {
+    const now = new Date("2026-11-10T12:00:00Z"); // 17:30 in India
+    const model = chartModel(
+      [
+        { at: new Date(now.getTime() - 30 * 60_000), value: 0 },
+        { at: now, value: 830 },
+      ],
+      now,
+    );
+    expect(model!.times).toEqual(["17:00", "17:10", "17:20", "Now"]);
+  });
+
   it("turns readings into a line, a filled shape and labels", () => {
     const now = new Date("2026-11-10T12:00:00Z");
     const model = chartModel(

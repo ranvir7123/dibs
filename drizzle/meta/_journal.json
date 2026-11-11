@@ -8,6 +8,13 @@
       "when": 1794321671621,
       "tag": "0000_gifted_shocker",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794431591824,
+      "tag": "0001_perfect_mongu",
+      "breakpoints": true
     }
   ]
 }

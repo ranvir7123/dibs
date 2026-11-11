@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import {
   callDibs,
   createJob,
+  endJob,
   getJobPage,
   getMyWork,
   getPerson,
@@ -162,4 +163,21 @@ export async function objectTo(_previous: FormState, form: FormData): Promise<Fo
   }
   refresh();
   return { error: null };
+}
+
+// ------------------------------------------------------------ a poster ending their job
+
+/** End a job now: last checks, pay what was earned, then PayPal lets the rest of the hold go. */
+export async function endThisJob(_previous: FormState, form: FormData): Promise<FormState> {
+  const jobId = text(form, "jobId");
+  const viewer = await getViewer();
+  if (!viewer) redirect(`/you?next=${encodeURIComponent(`/jobs/${jobId}`)}`);
+  try {
+    const outcome = await endJob({ jobId, posterId: viewer.id });
+    refresh();
+    // Not finished at once: the job is closed to new work, and the page says what is still going on.
+    return outcome.ended ? { error: null } : { error: outcome.note, notReady: true };
+  } catch (error) {
+    return failed(error);
+  }
 }

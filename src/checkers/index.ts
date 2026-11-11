@@ -7,7 +7,7 @@ import type { CheckReport, JobCard, TickSummary } from "@/contract/types";
 import { keepHandInFile } from "./files";
 import { writeJobCardWithAi } from "./job-card";
 import { runChecksAt } from "./run-checks";
-import { tickAt } from "./tick";
+import { endJobAt, tickAt } from "./tick";
 
 /**
  * AI turns the poster's one sentence into a job card, including how the
@@ -42,6 +42,17 @@ export async function runChecks(claimId: string): Promise<CheckReport> {
  */
 export async function tick(now: Date = new Date()): Promise<TickSummary> {
   return tickAt(now);
+}
+
+/**
+ * The poster ends their own job before its end date. Closes it the way the
+ * tick closes a job past its end: one last check and payment for each result,
+ * then the rest of the hold is let go. Only the job's poster may call it.
+ * "ended" is false when the closing could not finish at once; the tick then
+ * finishes it, and "note" says so in plain words.
+ */
+export async function endJob(input: { jobId: string; posterId: string }): Promise<{ ended: boolean; note: string | null }> {
+  return endJobAt(input, new Date());
 }
 
 /**

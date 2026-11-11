@@ -2,7 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { count, eq } from "drizzle-orm";
 import { useAi, type Ai } from "@/ai";
 import { closeDb, getDb, type Db } from "@/db/client";
-import { checks, moneyMoves, readings, results } from "@/db/schema";
+import { newId } from "@/db/ids";
+import { checks, moneyMoves, readings, results, sales } from "@/db/schema";
 import { seed } from "@/db/seed";
 import { callDibs, handIn, objectToOpinion } from "@/db/write";
 import { settings } from "@/settings";
@@ -292,6 +293,53 @@ describe("runChecks when no machine can measure the result (EXAMPLE AI answer)",
     const { claim } = await callDibs({ jobId: "job_kettle_translate", workerId });
     return claim.id.replace(/^clm_/, "");
   }
+});
+
+describe("runChecks on a sales job", () => {
+  const WAIT_MS = settings.saleRefundWaitMinutes * 60_000;
+
+  it("counts only sales that are paid, not refunded, and past the refund wait", async () => {
+    const { claim, link } = await callDibs({ jobId: "job_loom_sales", workerId: "per_kabir" });
+    const sale = (order: string, at: Date, refundedCents = 0) =>
+      db.insert(sales).values({
+        id: newId("sal"),
+        jobId: "job_loom_sales",
+        claimId: claim.id,
+        linkCode: link!.code,
+        paypalOrderId: order,
+        amountCents: 3200,
+        at,
+        refundedCents,
+        refundedAt: refundedCents ? new Date() : null,
+      });
+    const now = new Date();
+    await sale("TEST-SALE-GOOD", new Date(now.getTime() - WAIT_MS - 60_000));
+    await sale("TEST-SALE-REFUNDED", new Date(now.getTime() - WAIT_MS - 60_000), 3200); // the buyer got all of it back
+    await sale("TEST-SALE-TOO-NEW", new Date(now.getTime() - 1000)); // still inside the refund wait
+
+    const report = await runChecksAt(claim.id, now);
+    expect(report.measured.sales).toBe(1);
+    expect(report.earnedCents).toBe(500); // $5.00 a sale, for the one sale that counts
+    expect(report.checks.find((c) => c.key === "sales_real")).toMatchObject({
+      passed: true,
+      reason: "1 paid PayPal order carries this worker's code. 1 more is too new to count yet. 1 was refunded and does not count.",
+    });
+
+    // Once the wait is over, the new sale counts too. The refunded one never does.
+    const later = await runChecksAt(claim.id, new Date(now.getTime() + WAIT_MS + 1000));
+    expect(later.measured.sales).toBe(2);
+    expect(later.earnedCents).toBe(1000);
+    expect(later.checks.find((c) => c.key === "sales_real")?.reason).toBe("2 paid PayPal orders carry this worker's code. 1 was refunded and does not count.");
+  });
+
+  it("earns nothing when the only sale was refunded", async () => {
+    const { claim, link } = await callDibs({ jobId: "job_loom_sales", workerId: "per_isha" });
+    await db.insert(sales).values({ id: newId("sal"), jobId: "job_loom_sales", claimId: claim.id, linkCode: link!.code, paypalOrderId: "TEST-SALE-ONLY-REFUNDED", amountCents: 3200, at: new Date(Date.now() - WAIT_MS - 60_000), refundedCents: 3200, refundedAt: new Date() });
+    const report = await runChecks(claim.id);
+    expect(report.measured.sales).toBe(0);
+    expect(report.earnedCents).toBe(0);
+    expect(report.checks.find((c) => c.key === "sales_real")?.reason).toBe("No sales count through this link yet. 1 was refunded and does not count.");
+  });
 });
 
 describe("runChecks refuses what it cannot check", () => {

@@ -45,27 +45,33 @@ export function BoardSkeleton() {
       <p className="hide" role="status">
         Loading
       </p>
-      <div className="hello" aria-hidden="true">
-        <Sk w="min(380px, 80%)" h={32} />
-        <div style={{ marginTop: 10 }}>
-          <Sk w="min(520px, 100%)" />
+      <div className="hero" aria-hidden="true">
+        <div>
+          <Sk w="min(460px, 90%)" h={52} />
+          <div style={{ marginTop: 16 }}>
+            <Sk w="min(520px, 100%)" h={20} />
+          </div>
+        </div>
+        <div className="nums">
+          <Sk w={204} h={126} />
+          <Sk w={204} h={126} />
         </div>
       </div>
       <div className="board-top" aria-hidden="true">
-        <Sk w="min(560px, 100%)" h={44} />
-        <Sk w={170} h={30} round />
+        <Sk w="min(560px, 100%)" h={48} round />
+        <Sk w={120} h={32} round />
       </div>
       <div className="jobs" aria-hidden="true">
         {[0, 1, 2, 3, 4, 5].map((n) => (
           <div className="job" key={n}>
             <div className="job-top">
-              <Sk w={32} h={32} round />
-              <Sk w="45%" />
+              <Sk w={40} h={40} round />
+              <Sk w="45%" h={20} />
             </div>
-            <Sk w="85%" h={22} />
-            <Sk w="100%" h={104} />
+            <Sk w="85%" h={28} />
+            <Sk w="100%" h={148} />
             <Sk w="100%" h={8} round />
-            <Sk w="100%" h={42} round />
+            <Sk w="100%" h={48} round />
           </div>
         ))}
       </div>

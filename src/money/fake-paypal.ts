@@ -8,7 +8,7 @@
  */
 import { PayPalProblem, type PayPal, type PayPalOrder, type PayPalPayout } from "./paypal";
 
-type Action = "createHoldOrder" | "createSaleOrder" | "getOrder" | "authorizeOrder" | "captureOrder" | "takeFromHold" | "voidHold" | "sendPayout" | "getPayout" | "verifyWebhook";
+type Action = "createHoldOrder" | "createSaleOrder" | "getOrder" | "authorizeOrder" | "captureOrder" | "takeFromHold" | "getHold" | "refundPayment" | "voidHold" | "sendPayout" | "getPayout" | "verifyWebhook";
 
 interface Hold {
   id: string;
@@ -36,10 +36,15 @@ export interface FakePayPal extends PayPal {
   /** What PayPal says about the next takes (default COMPLETED). */
   takeStatus: string;
   count(action: Action): number;
+  /** A refund made on PayPal's own site, not through Dibs. */
+  refundOutside(orderId: string, cents: number): void;
 }
 
+// One counter for every pretend PayPal in a test file, so two of them never hand out the same number
+// (PayPal's real numbers are never repeated either).
+let next = 1;
+
 export function makeFakePayPal(): FakePayPal {
-  let next = 1;
   const id = (prefix: string) => `${prefix}${String(next++).padStart(6, "0")}`;
   const orders = new Map<string, PayPalOrder & { intent: "AUTHORIZE" | "CAPTURE" }>();
   const holds = new Map<string, Hold>();
@@ -65,17 +70,18 @@ export function makeFakePayPal(): FakePayPal {
   };
   const copy = (o: PayPalOrder): PayPalOrder => ({ ...o, authorization: o.authorization && { ...o.authorization }, capture: o.capture && { ...o.capture } });
 
-  const create = (intent: "AUTHORIZE" | "CAPTURE", input: { amountCents: number; customId: string }) => {
+  const create = (intent: "AUTHORIZE" | "CAPTURE", input: { amountCents: number; customId: string; returnUrl?: string }) => {
     const made = {
       intent,
       id: id("ORDER"),
-      status: "PAYER_ACTION_REQUIRED",
+      status: input.returnUrl ? "PAYER_ACTION_REQUIRED" : "CREATED",
       approveUrl: "",
       customId: input.customId,
       amountCents: input.amountCents,
       currency: "USD",
       authorization: null,
       capture: null,
+      refundedCents: 0,
       paidWithPayPalAccount: true,
     };
     made.approveUrl = `https://www.sandbox.paypal.com/checkoutnow?token=${made.id}`;
@@ -97,6 +103,11 @@ export function makeFakePayPal(): FakePayPal {
     payoutsMade: 0,
     takeStatus: "COMPLETED",
     count: (action) => fake.calls.filter((c) => c.action === action).length,
+    refundOutside(orderId, cents) {
+      const of = order(orderId);
+      of.refundedCents += cents;
+      if (of.capture) of.capture.status = of.refundedCents >= of.capture.amountCents ? "REFUNDED" : "PARTIALLY_REFUNDED";
+    },
     approve(orderId) {
       order(orderId).status = "APPROVED";
       order(orderId).approveUrl = null;
@@ -114,11 +125,11 @@ export function makeFakePayPal(): FakePayPal {
     },
 
     async createHoldOrder(input) {
-      begin("createHoldOrder", input);
+      begin("createHoldOrder", { ...input });
       return create("AUTHORIZE", input);
     },
     async createSaleOrder(input) {
-      begin("createSaleOrder", input);
+      begin("createSaleOrder", { ...input });
       return create("CAPTURE", input);
     },
     async getOrder(orderId) {
@@ -133,7 +144,7 @@ export function makeFakePayPal(): FakePayPal {
       const hold: Hold = { id: id("AUTH"), amountCents: found.amountCents ?? 0, takenCents: 0, voided: false, invoices: new Set() };
       holds.set(hold.id, hold);
       found.status = "COMPLETED";
-      found.authorization = { id: hold.id, status: "CREATED", amountCents: hold.amountCents };
+      found.authorization = { id: hold.id, status: "CREATED", amountCents: hold.amountCents, endsAt: new Date(Date.now() + 29 * 86_400_000) };
       return copy(found);
     },
     async captureOrder(orderId) {
@@ -159,6 +170,25 @@ export function makeFakePayPal(): FakePayPal {
       const made = { id: id("CAP"), status: fake.takeStatus };
       takesByRequest.set(input.requestId, made);
       return { ...made };
+    },
+    async getHold(authorizationId) {
+      begin("getHold", { authorizationId });
+      const hold = holds.get(authorizationId);
+      const of = [...orders.values()].find((o) => o.authorization?.id === authorizationId);
+      if (!hold || !of?.authorization) throw no("RESOURCE_NOT_FOUND", 404);
+      return { status: hold.voided ? "VOIDED" : hold.takenCents > 0 ? "PARTIALLY_CAPTURED" : "CREATED", amountCents: hold.amountCents, endsAt: of.authorization.endsAt };
+    },
+    async refundPayment(input) {
+      begin("refundPayment", input);
+      const of = [...orders.values()].find((o) => o.capture?.id === input.captureId);
+      if (!of?.capture) throw no("RESOURCE_NOT_FOUND", 404);
+      const left = of.capture.amountCents - of.refundedCents;
+      const amount = input.amountCents ?? left;
+      if (left <= 0) throw no("CAPTURE_FULLY_REFUNDED");
+      if (amount <= 0 || amount > left) throw no("REFUND_AMOUNT_EXCEEDED");
+      of.refundedCents += amount;
+      of.capture.status = of.refundedCents >= of.capture.amountCents ? "REFUNDED" : "PARTIALLY_REFUNDED";
+      return { id: id("REFUND"), status: "COMPLETED" };
     },
     async voidHold(authorizationId) {
       begin("voidHold", { authorizationId });

@@ -21,6 +21,10 @@ export interface Person {
   /** The email their PayPal uses. Payouts go here. One person per email. */
   paypalEmail: string;
   createdAt: Date;
+  /** PayPal's own number for their account. Set when they joined with "Log in with PayPal", otherwise null. */
+  paypalAccountId: string | null;
+  /** What PayPal said about the account when they logged in: true = PayPal has checked who they are. Null when they joined by email. */
+  paypalVerified: boolean | null;
 }
 
 // ---------------------------------------------------------------- the job card
@@ -161,6 +165,8 @@ export interface Job {
   paypalAuthorizationId: string | null;
   createdAt: Date;
   endedAt: Date | null;
+  /** The date PayPal's hold ends, read from PayPal's own answer when the hold was made. Null for a draft. */
+  holdEndsAt: Date | null;
 }
 
 /** open: the worker called dibs. handed_in: they gave a link or file. closed: the job ended or they dropped it. */
@@ -363,6 +369,75 @@ export interface Sale {
   /** What the buyer paid. */
   amountCents: number;
   at: Date;
+  /** PayPal's number for the payment itself (needed to refund it, and to read its state again). Null on old rows. */
+  paypalCaptureId: string | null;
+  /** How much of it has been refunded to the buyer, as PayPal last told us. 0 when none. */
+  refundedCents: number;
+  /** When we last learned of a refund. Null when none. */
+  refundedAt: Date | null;
+}
+
+/**
+ * Where a sale stands for commission.
+ * waiting: too new, the refund wait (settings.saleRefundWaitMinutes) is not over.
+ * counted: kept in full and past the wait.
+ * part_refunded: part was refunded; it still counts as a sale, and keptCents is what was kept.
+ * refunded: all of it was refunded; it is not counted and earns nothing.
+ */
+export type SaleState = "waiting" | "counted" | "part_refunded" | "refunded";
+
+/** One order on the shop owner's orders page. */
+export interface ShopOrder {
+  sale: Sale;
+  /** The worker whose code was on the order. */
+  workerName: string;
+  jobTitle: string;
+  /** What the shop kept: amountCents minus refundedCents. */
+  keptCents: number;
+  state: SaleState;
+  /** When the refund wait ends for this sale. */
+  countsAt: Date;
+}
+
+// ---------------------------------------------------------------- the money trail
+
+/** locked: the hold was made. payment: money taken from the hold and sent to a worker. released: the rest was let go. */
+export type MoneyTrailStepKind = "locked" | "payment" | "released";
+
+/** One line of a job's money trail. */
+export interface MoneyTrailStep {
+  /** The id of the money move behind this line (for a payment, the payout's; the take's when no payout exists yet). */
+  id: string;
+  kind: MoneyTrailStepKind;
+  when: Date;
+  amountCents: number;
+  /** pending = still on its way, done, or failed. */
+  status: MoneyMoveStatus;
+  /** PayPal's reference: the hold's number for locked and released, the payout's number for a payment. Null until PayPal answers. */
+  paypalRef: string | null;
+  /** For a payment: PayPal's reference for taking it from the hold. Null otherwise. */
+  takeRef: string | null;
+  /** For a payment: the worker's name. Null otherwise. */
+  who: string | null;
+  /** What it was for, in plain words. */
+  what: string;
+}
+
+/** A job's money from start to end, oldest first. */
+export interface MoneyTrail {
+  jobId: string;
+  holdEndsAt: Date | null;
+  steps: MoneyTrailStep[];
+}
+
+// ---------------------------------------------------------------- PayPal on the page
+
+/** What a page needs to draw PayPal's button. Nothing secret: PayPal's client id is public. */
+export interface PayPalSetup {
+  clientId: string;
+  currency: string;
+  /** True when "Log in with PayPal" is switched on (PAYPAL_LOGIN_ON). */
+  loginOn: boolean;
 }
 
 // ---------------------------------------------------------------- what lane A returns

@@ -8,8 +8,12 @@
  * - a buyer approved a shop order         -> the payment is taken (in case they closed the tab early)
  * - a poster approved a job's hold        -> the hold is locked and the job opened (same reason)
  * - a payout finished or failed           -> its record is updated
+ * - a sale was refunded or reversed       -> the sale is read again from PayPal and stops counting
  */
-import { confirmHold, MoneyRefusal, recordSale, settlePayout } from "./index";
+import { eq, inArray } from "drizzle-orm";
+import { getDb } from "../db/client";
+import { sales } from "../db/schema";
+import { confirmHold, MoneyRefusal, recordSale, refreshSale, settlePayout } from "./index";
 import { getPayPal, JOB_LABEL, PayPalProblem, SALE_LABEL, textToCents } from "./paypal";
 import { cleanCode, finishShopOrder } from "./shop";
 
@@ -63,8 +67,20 @@ export async function handlePayPalMessage(headers: Headers, rawBody: string): Pr
       const amountCents = textToCents(obj(resource.amount).value);
       if (!code) return { status: 200, body: "A sale with no worker's code." };
       if (!orderId || amountCents === null) return { status: 200, body: "A sale message without its order or amount." };
-      const sale = await recordSale({ paypalOrderId: orderId, linkCode: code, amountCents });
+      const sale = await recordSale({ paypalOrderId: orderId, linkCode: code, amountCents, paypalCaptureId: text(resource.id) || null });
       return { status: 200, body: `Sale ${sale.id} counted.` };
+    }
+    if (type === "PAYMENT.CAPTURE.REFUNDED" || type === "PAYMENT.CAPTURE.REVERSED") {
+      // The message is about a refund; the payment it belongs to is named in its "up" link (or is the thing itself).
+      const up = ((resource.links as unknown[] | undefined) ?? []).map(obj).find((l) => l.rel === "up");
+      const captureIds = [/\/captures\/([A-Z0-9]+)/.exec(text(up?.href))?.[1], text(resource.id)].filter((id): id is string => !!id);
+      const db = await getDb();
+      const sale = captureIds.length ? (await db.select().from(sales).where(inArray(sales.paypalCaptureId, captureIds)))[0] : undefined;
+      const byOrder = sale ?? (await db.select().from(sales).where(eq(sales.paypalOrderId, text(obj(obj(resource.supplementary_data).related_ids).order_id))))[0];
+      if (!byOrder) return { status: 200, body: "A refund for a payment that is not a counted sale." };
+      // What was refunded is read from PayPal itself, not from this message.
+      const after = await refreshSale(byOrder.paypalOrderId);
+      return { status: 200, body: `Sale ${after.id}: ${after.refundedCents} cents refunded.` };
     }
     if (type === "CHECKOUT.ORDER.APPROVED") {
       const label = text(obj((resource.purchase_units as unknown[] | undefined)?.[0]).custom_id);

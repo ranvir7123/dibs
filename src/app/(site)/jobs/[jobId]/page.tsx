@@ -5,7 +5,8 @@ import { formatCents, getJobPage, getMyWork } from "@/contract";
 import type { ResultStatus } from "@/contract/types";
 import { AutoRefresh } from "@/ui/AutoRefresh";
 import { CallDibs } from "@/ui/CallDibs";
-import { ago, count, daysLeftLabel, plural } from "@/ui/format";
+import { EndJob } from "@/ui/EndJob";
+import { ago, count, daysLeftLabel, longDay, plural, sentence } from "@/ui/format";
 import { Icon } from "@/ui/Icon";
 import { MoneyBar } from "@/ui/JobTile";
 import { ResultCardView } from "@/ui/ResultCardView";
@@ -45,7 +46,7 @@ export default async function JobRunPage({ params, searchParams }: Props) {
 
   const headLine = [
     `${poster.name}.`,
-    `${job.card.payLine}.`,
+    sentence(job.card.payLine),
     progress ? `${count(progress.count)} of ${count(progress.target)} so far.` : "",
   ]
     .filter(Boolean)
@@ -82,6 +83,11 @@ export default async function JobRunPage({ params, searchParams }: Props) {
           </div>
         </div>
         <MoneyBar paidCents={money.paidCents} lockedCents={money.lockedCents} big />
+        {job.status === "open" && job.holdEndsAt ? (
+          <p className="sub num" style={{ marginTop: 12 }}>
+            PayPal holds this until {longDay(job.holdEndsAt)}.
+          </p>
+        ) : null}
       </div>
 
       {job.status === "draft" ? (
@@ -92,11 +98,23 @@ export default async function JobRunPage({ params, searchParams }: Props) {
         </div>
       ) : null}
 
-      {job.status === "open" && viewer && !viewerIsPoster && !myClaim ? (
+      {job.status === "open" && viewerIsPoster ? (
+        job.endsAt.getTime() > now.getTime() ? (
+          <EndJob jobId={job.id} heldLabel={formatCents(money.heldCents)} />
+        ) : (
+          <div style={{ marginBottom: 20 }}>
+            <Notice kind="warn" title="This job is ending">
+              It is closed to new work. The last checks and payments are finishing; the rest of the held money is let go as soon as they are done.
+            </Notice>
+          </div>
+        )
+      ) : null}
+
+      {job.status === "open" && job.endsAt.getTime() > now.getTime() && viewer && !viewerIsPoster && !myClaim ? (
         <div className="panel todo" style={{ borderTop: "1px solid var(--line)", marginBottom: 20 }}>
           <p>
             <b>Want this job?</b>
-            {job.card.finishLine}. {job.card.payLine}.
+            {sentence(job.card.finishLine)} {sentence(job.card.payLine)}
           </p>
           <CallDibs jobId={job.id} />
         </div>

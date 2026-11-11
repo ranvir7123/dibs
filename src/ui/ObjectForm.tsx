@@ -15,7 +15,7 @@ export function ObjectForm({ resultId }: { resultId: string }) {
         {pending ? "Sending…" : "I object to this"}
       </button>
       {state.error ? (
-        <p role="alert" className="ref" style={{ color: "var(--stop)", marginTop: 8 }}>
+        <p role="alert" className="ref" style={{ color: "var(--stop-text)", marginTop: 8 }}>
           {state.error}
         </p>
       ) : null}

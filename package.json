@@ -12,12 +12,17 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/cli/migrate.ts",
     "db:seed": "tsx src/db/cli/seed.ts",
-    "db:titles": "tsx src/db/cli/titles.ts"
+    "db:titles": "tsx src/db/cli/titles.ts",
+    "tick": "tsx scripts/tick.ts",
+    "online:setup": "tsx scripts/online-setup.ts",
+    "checks:worker": "tsx scripts/tick-worker.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.7.0",
     "@electric-sql/pglite": "^0.5.16",
     "@google/genai": "^3.0.0",
+    "@renderinc/sdk": "^1.8.0",
+    "ag-studio-react": "^3.1.0",
     "drizzle-orm": "^0.45.4",
     "next": "^16.4.6",
     "pg": "^8.23.1",

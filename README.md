@@ -95,6 +95,8 @@ To put it online, see [docs/GOING-ONLINE.md](docs/GOING-ONLINE.md).
 | `npm run typecheck` | Checks the types of every file |
 | `npm run db:titles` | Prints the jobs on the board with their money |
 | `npx tsx scripts/demo-reset.ts --practice` | Wipes the database and loads the sample board plus the people in the demo video |
+| `npx tsx scripts/join-hold.ts <job id>` | For practice runs with nobody to sign in to PayPal: locks a draft job's money with PayPal's published test card (a real test-mode hold), then opens the job. Run it with the app stopped |
+| `npx tsx scripts/join-look.ts <job id>` | Prints what the database holds for a job: money moves with PayPal's references, results, checks, readings, clicks. Changes nothing. Run it with the app stopped |
 | `npx tsx scripts/attack.ts --stand-in` | Fires 5,000 clicks at one tracked link from your machine and prints how many Dibs counted. Run it with the app stopped; it uses a small stand-in link server and the laptop's own database |
 
 ## How PayPal is used, and where in the code

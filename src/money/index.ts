@@ -22,6 +22,8 @@ import { newId } from "../db/ids";
 import { claims, jobs, moneyMoves, people, results, sales, trackedLinks } from "../db/schema";
 import { settings } from "../settings";
 import { getPayPal, JOB_LABEL, PayPalProblem, type PayPalPayout } from "./paypal";
+import { MoneyRefusal } from "./refusal";
+import { commissionCapCents, refreshClaimSales } from "./sales";
 import { siteBase } from "./site";
 
 /** Waiting times, kept in one place so tests can shorten them. */
@@ -34,17 +36,11 @@ export const moneyTiming = {
   staleAfterMs: 120_000,
 };
 
-/**
- * A plain "no" with a sentence a person can read (unknown job, not approved
- * yet, job not open). Trying the same thing again would give the same answer.
- * Anything else that goes wrong is a fault worth another try.
- */
-export class MoneyRefusal extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "MoneyRefusal";
-  }
-}
+export { MoneyRefusal } from "./refusal";
+// The PayPal additions of 12 Nov (docs/CONTRACT.md, section 10) live in their own files.
+export { countSales, getShopOrders, refreshSale, refundSale } from "./sales";
+export { getMoneyTrail } from "./trail";
+export { getPayPalSetup, joinWithPayPal } from "./login";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const sum = (moves: { amountCents: number }[]) => moves.reduce((total, m) => total + m.amountCents, 0);
@@ -85,7 +81,7 @@ export async function startHold(jobId: string): Promise<HoldStart> {
   if (job.paypalOrderId) {
     try {
       const order = await paypal.getOrder(job.paypalOrderId);
-      if (order.approveUrl && (order.status === "PAYER_ACTION_REQUIRED" || order.status === "CREATED")) {
+      if (order.approveUrl && order.status === "PAYER_ACTION_REQUIRED") {
         return { paypalOrderId: order.id, approveUrl: order.approveUrl };
       }
       // Already approved: nothing more to do on PayPal, go straight to locking it.
@@ -111,17 +107,58 @@ export async function startHold(jobId: string): Promise<HoldStart> {
 }
 
 /**
- * Finishes the hold after the poster approved it on PayPal: locks the money,
- * records a "hold" money move and opens the job. Safe to call twice.
+ * Like startHold, but for PayPal's button, whose window opens over our page:
+ * the order carries no return address, and the page calls confirmHold when
+ * PayPal's button says the poster approved. approveUrl is still filled in.
  */
-export async function confirmHold(jobId: string): Promise<MoneyMove> {
+export async function startHoldOrder(jobId: string): Promise<HoldStart> {
   const db = await getDb();
   const job = (await db.select().from(jobs).where(eq(jobs.id, jobId)))[0];
   if (!job) throw new MoneyRefusal("No such job.");
+  if (job.status !== "draft") throw new MoneyRefusal("This job's money is already locked.");
+  const paypal = getPayPal();
+  if (job.paypalOrderId) {
+    try {
+      // Pressed twice: the same order while nobody has approved it yet.
+      const order = await paypal.getOrder(job.paypalOrderId);
+      if (order.status === "CREATED" && order.amountCents === job.budgetCents) return { paypalOrderId: order.id, approveUrl: order.approveUrl ?? "" };
+    } catch (error) {
+      if (unknownOutcome(error)) throw error;
+    }
+  }
+  const order = await paypal.createHoldOrder({
+    requestId: `hold-${job.id}-${randomBytes(6).toString("hex")}`,
+    amountCents: job.budgetCents,
+    description: `Dibs job: ${job.title}`,
+    customId: JOB_LABEL + job.id,
+  });
+  await db.update(jobs).set({ paypalOrderId: order.id }).where(and(eq(jobs.id, job.id), eq(jobs.status, "draft")));
+  return { paypalOrderId: order.id, approveUrl: order.approveUrl ?? "" };
+}
+
+/**
+ * Finishes the hold after the poster approved it on PayPal: locks the money,
+ * records a "hold" money move and opens the job. Safe to call twice.
+ * approvedOrderId is for PayPal's button: the order the poster just approved,
+ * in case the job has since been given another one. It is only used when
+ * PayPal's own answer says that order is for this job and this amount.
+ */
+export async function confirmHold(jobId: string, approvedOrderId?: string): Promise<MoneyMove> {
+  const db = await getDb();
+  let job = (await db.select().from(jobs).where(eq(jobs.id, jobId)))[0];
+  if (!job) throw new MoneyRefusal("No such job.");
+  if (approvedOrderId && job.status === "draft" && approvedOrderId !== job.paypalOrderId) job = { ...job, paypalOrderId: approvedOrderId };
   const holdMove = async (from: Pick<typeof db, "select"> = db) =>
     (await from.select().from(moneyMoves).where(and(eq(moneyMoves.jobId, jobId), eq(moneyMoves.kind, "hold"), eq(moneyMoves.status, "done"))))[0];
   const already = await holdMove();
-  if (already) return already;
+  if (already) {
+    // A hold made before the end date was stored: read it from PayPal once.
+    if (!job.holdEndsAt && job.status === "open" && job.paypalAuthorizationId) {
+      const endsAt = (await getPayPal().getHold(job.paypalAuthorizationId).catch(() => null))?.endsAt;
+      if (endsAt) await db.update(jobs).set({ holdEndsAt: endsAt }).where(eq(jobs.id, jobId));
+    }
+    return already;
+  }
   if (!job.paypalOrderId) throw new MoneyRefusal("This job's hold has not been started yet.");
 
   const paypal = getPayPal();
@@ -144,6 +181,9 @@ export async function confirmHold(jobId: string): Promise<MoneyMove> {
     throw new MoneyRefusal(`PayPal did not hold the money (it says ${hold.status}).`);
   }
   if (hold.amountCents !== job.budgetCents) throw new MoneyRefusal("PayPal held a different amount than the job's budget, so the job was not opened.");
+  // The date the hold ends, from PayPal's own record of the hold (about 29 days out).
+  const holdEndsAt = (await paypal.getHold(hold.id).catch(() => null))?.endsAt ?? hold.endsAt;
+  const orderId = order.id;
 
   return db.transaction(async (tx) => {
     const locked = (await tx.select().from(jobs).where(eq(jobs.id, jobId)).for("update"))[0];
@@ -165,7 +205,7 @@ export async function confirmHold(jobId: string): Promise<MoneyMove> {
         })
         .returning()
     )[0];
-    await tx.update(jobs).set({ status: "open", paypalAuthorizationId: hold.id }).where(and(eq(jobs.id, jobId), eq(jobs.status, "draft")));
+    await tx.update(jobs).set({ status: "open", paypalOrderId: orderId, paypalAuthorizationId: hold.id, holdEndsAt }).where(and(eq(jobs.id, jobId), eq(jobs.status, "draft")));
     return move;
   });
 }
@@ -332,6 +372,12 @@ export async function payWorker(resultId: string): Promise<PayOutcome> {
   const settled = await settlePending(resultId);
   const settledPayout = settled.find((m) => m.kind === "payout" && m.status === "done") ?? null;
 
+  // A sales job: read every sale's state again from PayPal first, so a refund
+  // is seen even when PayPal's message about it never reached us.
+  const firstJob = (await db.select().from(jobs).where(eq(jobs.id, first.jobId)))[0];
+  const salesJob = firstJob.card.checker.evidence.includes("paypal_sale");
+  if (salesJob) await refreshClaimSales(first.claimId);
+
   // The one short transaction: lock, work out, write "pending".
   const plan = await db.transaction(async (tx) => {
     const job = (await tx.select().from(jobs).where(eq(jobs.id, first.jobId)).for("update"))[0];
@@ -363,7 +409,9 @@ export async function payWorker(resultId: string): Promise<PayOutcome> {
     if (jobMoves.some((m) => m.kind === "let_go" && counts(m))) return null;
 
     const held = job.budgetCents - sum(jobMoves.filter((m) => m.kind === "take" && counts(m)));
-    const owed = Math.min(Math.max(0, result.earnedCents - sum(myTakes.filter(counts))), Math.max(0, held));
+    // Commission is only paid for sales that count right now: not refunded, and past the refund wait.
+    const payable = salesJob ? Math.min(result.earnedCents, await commissionCapCents(tx, job, result.claimId)) : result.earnedCents;
+    const owed = Math.min(Math.max(0, payable - sum(myTakes.filter(counts))), Math.max(0, held));
     if (owed <= 0) return null;
     const fee = settings.feeTakenFromPayouts ? Math.round((owed * settings.feePercent) / 100) : 0;
     const take = (
@@ -473,6 +521,8 @@ export async function recordSale(input: {
   linkCode: string;
   /** What the buyer paid, in cents. */
   amountCents: number;
+  /** PayPal's number for the payment itself. Needed to refund it later. */
+  paypalCaptureId?: string | null;
 }): Promise<Sale> {
   const paypalOrderId = input.paypalOrderId.trim();
   const linkCode = input.linkCode.trim();
@@ -491,7 +541,7 @@ export async function recordSale(input: {
 
   await db
     .insert(sales)
-    .values({ id: newId("sal"), jobId: link.jobId, claimId: link.claimId, linkCode: link.code, paypalOrderId, amountCents: input.amountCents })
+    .values({ id: newId("sal"), jobId: link.jobId, claimId: link.claimId, linkCode: link.code, paypalOrderId, amountCents: input.amountCents, paypalCaptureId: input.paypalCaptureId ?? null })
     .onConflictDoNothing({ target: sales.paypalOrderId });
   return (await stored())!;
 }

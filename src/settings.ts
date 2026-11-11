@@ -19,6 +19,8 @@ export const settings = {
   feePercent: 10,
   /** 1 means the fee is really taken from payouts; 0 means it is only shown. Off in the first build. */
   feeTakenFromPayouts: 0,
+  /** How long a sale waits before its commission can be paid, in minutes, so a refund in that time means no commission. A starting value: a real shop would wait days. */
+  saleRefundWaitMinutes: 2,
 
   // ---- time limits ----
 

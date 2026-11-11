@@ -2,7 +2,7 @@ import { chartModel, type ChartPoint } from "./chart";
 
 /**
  * The small chart on a result card, drawn from the result's readings.
- * Blue for a healthy count, red when the line is the cheat itself.
+ * Green for a healthy count, red when the line is the cheat itself.
  */
 export function Chart({ id, points, bad, label, now, emptyText }: { id: string; points: ChartPoint[]; bad: boolean; label: string; now: Date; emptyText: string }) {
   const model = chartModel(points, now);
@@ -13,7 +13,7 @@ export function Chart({ id, points, bad, label, now, emptyText }: { id: string; 
       </div>
     );
   }
-  const colour = bad ? "#f0616d" : "#dcb765";
+  const colour = bad ? "#d6453d" : "#1f7a4d";
   const fillId = `fill-${id}`;
   return (
     <div className="chart">
@@ -25,7 +25,7 @@ export function Chart({ id, points, bad, label, now, emptyText }: { id: string; 
               <stop offset="1" stopColor={colour} stopOpacity="0" />
             </linearGradient>
           </defs>
-          <g stroke="#2a2a28" strokeWidth="1">
+          <g stroke="#15130a" strokeOpacity="0.09" strokeWidth="1">
             <path className="ln" d="M0 12H360M0 48H360M0 84H360M0 120H360" />
           </g>
           <path d={model.area} fill={`url(#${fillId})`} />

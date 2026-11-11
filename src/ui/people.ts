@@ -1,13 +1,12 @@
 /**
  * The people the "who are you" screen offers. Server code only.
  *
- * The contract has no "list everyone" read, so the list is put together from
- * what it does give: the posters on the board, the workers on those jobs, and
- * the people this browser has joined as.
+ * Posters on the board come first, then the workers on those jobs, then
+ * everyone else who has joined (newest first), so the people set up for a
+ * demo can be picked before they have done anything.
  */
-import { getBoard, getJobPage, getPerson } from "@/contract";
+import { getBoard, getJobPage, getPeople } from "@/contract";
 import type { Person } from "@/contract/types";
-import { getKnownIds } from "./viewer";
 
 export interface Choice {
   person: Person;
@@ -43,12 +42,11 @@ export async function listChoices(viewer: Person | null): Promise<Choice[]> {
     }
   }
 
-  // People this browser joined as, and whoever is chosen now, even if they have done nothing yet.
-  const extraIds = [...(await getKnownIds()), ...(viewer ? [viewer.id] : [])].filter((id) => !choices.has(id));
-  const extras = await Promise.all([...new Set(extraIds)].map((id) => getPerson(id)));
-  for (const person of extras) {
-    if (person) choices.set(person.id, { person, does: "New here" });
+  // Everyone else: joined, but has posted and taken nothing that is on the board.
+  for (const person of await getPeople()) {
+    if (!choices.has(person.id)) choices.set(person.id, { person, does: "New here" });
   }
+  if (viewer && !choices.has(viewer.id)) choices.set(viewer.id, { person: viewer, does: "New here" });
 
   return [...choices.values()];
 }

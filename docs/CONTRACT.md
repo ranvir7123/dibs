@@ -180,6 +180,7 @@ writeJobCard(input: { sentence: string; posterName: string }): Promise<JobCard>
 runChecks(claimId: string): Promise<CheckReport>
 tick(now?: Date): Promise<TickSummary>
 storeHandInFile(input: { claimId: string; fileName: string; bytes: Uint8Array }): Promise<string>
+endJob(input: { jobId: string; posterId: string }): Promise<{ ended: boolean; note: string | null }>
 ```
 
 | Function | What it must do |
@@ -188,8 +189,11 @@ storeHandInFile(input: { claimId: string; fileName: string; bytes: Uint8Array })
 | `runChecks` | For one claim's result: read the numbers from the source, run the cheat tests, work out `earnedCents`, then save the checks (replacing the last run), one `Reading`, and the result (`measured`, `status`, `earnedCents`, `summary`, the footer, `lastCheckedAt`, `nextCheckAt`). **Moves no money.** Never set status `paid` yourself: lane A does that when money goes out. |
 | `tick` | Called every minute by an outside timer through `src/app/api/tick/`. Runs `runChecks` for every result whose `nextCheckAt` has passed; calls `payWorker` for results that are owed at least `settings.minPayoutCents`, no more often per job than `settings.payBatchMinutes`; for open jobs past `endsAt`, runs one last `runChecks` and `payWorker` for each result (ignoring the batch wait), then calls `letGo`. "Last paid" for a job is not stored: it is the newest `createdAt` among the job's `take` moves. One failure must not stop the rest: put it in `problems`. |
 | `storeHandInFile` | Keep an uploaded file and return where it is kept. The screen passes that text to `handIn` as `file`. |
+| `endJob` | The poster ends their own job early (added by the join session, 11 Nov). Moves the job's `endsAt` to now, then closes it exactly as `tick` closes a job past its end: one last `runChecks` and `payWorker` for each result, then `letGo`. Only the job's poster may call it. `ended` is `false` when the closing could not finish at once (a last check failed, a payment is still going through, a tick is running); the job is then already closed to new work, the tick finishes it, and `note` says so in plain words. |
 
-Lane B also owns the tracked link address `src/app/r/[code]/`, which adds a `Click` row and sends the visitor on to `TrackedLink.targetUrl`.
+Lane B also owns the tracked link address `src/app/r/[code]/`, which adds a `Click` row and sends the visitor on to `TrackedLink.targetUrl` with the worker's code added as `ref=<code>` (lane A's shop reads it from there, so the PayPal order carries the code).
+
+Uploaded files are served back at `/hand-ins/<claim id>/<file name>` (`src/app/hand-ins/`), so a result card can play a recording and jump to a rule's moment. (Both added by the join session, 11 Nov.)
 
 ### Start lane built these (working and tested, in `src/db/`)
 
@@ -198,6 +202,7 @@ getBoard(viewerId?: string | null): Promise<Board>
 getJobPage(jobId: string): Promise<JobPage | null>
 getMyWork(personId: string): Promise<MyWork | null>
 getPerson(personId: string): Promise<Person | null>
+getPeople(): Promise<Person[]>
 getJobMoney(jobId: string): Promise<JobMoney>
 getMyJobs(posterId: string): Promise<BoardJob[]>
 
@@ -216,6 +221,7 @@ getDb(): Promise<Db>
 | `getJobPage` | One job with its money, progress and every result card. `null` for an unknown id. Works for drafts. |
 | `getMyWork` | A worker's claims, result cards and payouts. `null` for an unknown person. |
 | `getPerson` | One person, or `null`. |
+| `getPeople` | Everyone who has joined, newest first. For the "who are you" screen, so someone who has posted and taken nothing can still be picked. (Added by the join session, 11 Nov.) |
 | `getJobMoney` | Locked, paid, held, let go, added up from the money moves. All zero for an unknown or draft job. |
 | `getMyJobs` | Every job a person has posted, newest first, with its money: drafts, open and ended. For the poster's side of the site. |
 | `joinDibs` | Makes a person, or returns the one who already joined with that email. |
@@ -234,6 +240,7 @@ These throw an `Error` with a plain sentence when the input is wrong ("Please gi
 | Posting a job | `writeJobCard` (B) → poster reads the card → `createJob` (Start) → `startHold` (A) → poster approves on PayPal → `confirmHold` (A) |
 | Taking a job | `joinDibs` (Start) → `callDibs` (Start) → for a file: `storeHandInFile` (B) → `handIn` (Start) |
 | Every minute | `tick` (B) → `runChecks` (B) → `payWorker` (A) → `letGo` (A) for jobs past their end |
+| Ending a job early | poster presses "End this job" → `endJob` (B) → `runChecks` (B) → `payWorker` (A) → `letGo` (A) |
 | A sale | lane A's shop page or PayPal's message → `recordSale` (A) → the next `runChecks` counts it |
 | Drawing | `getBoard`, `getJobPage`, `getMyWork` (Start) |
 
@@ -248,6 +255,7 @@ These throw an `Error` with a plain sentence when the input is wrong ("Please gi
 | `minPayoutCents` | 100 | Smallest payout worth sending |
 | `feePercent` | 10 | Dibs's share of each payout, shown on the job card |
 | `feeTakenFromPayouts` | 0 | 1 = really take the fee, 0 = only show it |
+| `saleRefundWaitMinutes` | 2 | How long a sale waits before its commission can be paid, so a refund in that time means no commission |
 | `checkEveryMinutes` | 10 | How often a result's numbers are read again |
 | `objectionWindowDays` | 3 | Time a poster has to object to an AI opinion |
 | `maxJobDays` | 21 | Longest a job may run |
@@ -272,12 +280,18 @@ Listed in `.env.example` with no values. Put real values in `.env.local`, which 
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | A | PayPal test keys |
 | `PAYPAL_API_BASE` | A | PayPal's test address |
 | `PAYPAL_WEBHOOK_ID` | A | For PayPal telling our server about sales |
+| `PAYPAL_LOGIN_ON` | A | `1` = show "Log in with PayPal". Empty = only the email way shows. |
 | `PAYPAL_TEST_BUYER_EMAIL` | A, D | The pretend buyer who approves the hold |
 | `PAYPAL_TEST_WORKER_EMAIL`, `PAYPAL_TEST_WORKER2_EMAIL` | A, D | The pretend workers who get paid |
 | `GOOGLE_AI_API_KEY` | B | AI that watches video |
 | `YOUTUBE_API_KEY` | B | Reading view counts |
 | `ANTHROPIC_API_KEY` | B | AI that writes and judges text |
 | `TICK_SECRET` | B, D | Password the outside timer sends with each call |
+| `DIBS_FILES_DIR` | B | Online only: folder where handed-in files are kept. Empty = a folder inside the project. |
+| `DIBS_WEB_HOSTPORT` | B | Online only: the site's inside address on Render, so the timer can fetch handed-in files. Render fills it in. |
+| `DIBS_CHECKS_ON_RENDER` | B | `1` = slow checks are handed to Render's background tasks. Empty = the timer does every check itself. |
+| `RENDER_API_KEY` | B | A key from Render, so the timer may start background tasks |
+| `DIBS_CHECKS_WORKFLOW` | B | The name of the background-task service on Render |
 
 ## 7. Commands
 
@@ -336,3 +350,88 @@ Where the sample differs from the drawing:
 - The drawing's "You've earned $48.20" has no person behind it. Use `getBoard("per_aarav")` to see $12.40.
 - kabir.cuts, isha.edits, dev.finds, tara.styles, rohan.tests and ishaan.breaks are invented so each job's paid total has someone behind it.
 - "9D left" and the other times are counted from the moment you seed. Seed again to reset them.
+
+## 10. PayPal additions (12 Nov)
+
+Five additions, all lane A's. Everything is PayPal test mode. Names here are final; a body that is not built yet fails with `not built yet: lane A owns <name>`.
+
+### New stored fields
+
+| Shape | Field | Means |
+|---|---|---|
+| `Job` | `holdEndsAt` | The date PayPal's hold ends, read from PayPal's own answer when the hold was made. `null` for a draft. Comes with every job the reads return (`getBoard`, `getJobPage`, `getMyJobs`). |
+| `Sale` | `paypalCaptureId` | PayPal's number for the payment itself. Needed to refund it and to read its state again. |
+| `Sale` | `refundedCents` | How much was refunded to the buyer, as PayPal last told us. 0 when none. |
+| `Sale` | `refundedAt` | When we last learned of a refund, or `null`. |
+| `Person` | `paypalAccountId` | PayPal's own number for their account, set by "Log in with PayPal". `null` when they joined by email. One person per account. |
+| `Person` | `paypalVerified` | What PayPal said when they logged in: `true` = PayPal has checked who they are. `null` when they joined by email. |
+
+The SQL for these is `drizzle/0001_perfect_mongu.sql`. The built-in database applies it by itself; a hosted one needs `npm run db:migrate` once.
+
+### New shapes (in `src/contract/types.ts`)
+
+| Shape | What it is |
+|---|---|
+| `SaleState` | `waiting` (the refund wait is not over), `counted`, `part_refunded` (still one sale; `keptCents` is what was kept), `refunded` (all of it went back: not counted, earns nothing). |
+| `ShopOrder` | One row of the shop owner's orders page: `sale`, `workerName`, `jobTitle`, `keptCents`, `state`, `countsAt` (when the refund wait ends). |
+| `MoneyTrail` | A job's money from start to end: `jobId`, `holdEndsAt`, `steps` (oldest first). |
+| `MoneyTrailStep` | One line: `id`, `kind`, `when`, `amountCents`, `status`, `paypalRef`, `takeRef`, `who`, `what`. A payment is ONE line: `paypalRef` is the payout's reference and `takeRef` is the reference for taking it from the hold. |
+| `MoneyTrailStepKind` | `locked`, `payment`, `released`. |
+| `PayPalSetup` | What a page needs to draw PayPal's button: `clientId` (public, not a secret), `currency`, `loginOn`. |
+
+### New functions (import from `@/contract`, server only)
+
+```ts
+refundSale(input: { paypalOrderId: string; amountCents?: number }): Promise<Sale>
+refreshSale(paypalOrderId: string): Promise<Sale>
+countSales(claimId: string, now?: Date): Promise<{ counted: number; waiting: number; refunded: number; keptCents: number }>
+getShopOrders(posterId: string): Promise<ShopOrder[]>
+getMoneyTrail(jobId: string): Promise<MoneyTrail>
+getPayPalSetup(): PayPalSetup
+startHoldOrder(jobId: string): Promise<HoldStart>
+joinWithPayPal(input: { paypalAccountId: string; email: string; name?: string | null; verified: boolean | null }): Promise<Person>
+```
+
+| Function | What it does |
+|---|---|
+| `refundSale` | Refunds a shop sale at PayPal: all of it, or `amountCents` of it. Stores what PayPal says was refunded. Refuses more than is left. |
+| `refreshSale` | Reads the sale's state again from PayPal and stores `refundedCents`. `payWorker` does this for every sale of a sales job before it pays, so a refund is seen even when PayPal's message never reached us. |
+| `countSales` | The sales that count for a claim right now. `counted`: not fully refunded AND older than `settings.saleRefundWaitMinutes`. `waiting`: too new. `refunded`: fully refunded. **Lane B: use `counted` for `measured.sales` instead of counting rows**, or refunded and too-new sales still show as earned. |
+| `getShopOrders` | Every sale on the jobs this person posted, newest first, for the orders page. |
+| `getMoneyTrail` | The job's money moves as trail lines, oldest first. Empty `steps` for a draft or unknown job. |
+| `getPayPalSetup` | The public values a page needs for PayPal's button and login. |
+| `startHoldOrder` | Like `startHold`, for PayPal's window over the page: makes (or reuses) the PayPal order with no leaving the page. `approveUrl` is still filled, as the fallback. Finish with `confirmHold`. |
+| `joinWithPayPal` | Finds the person with this PayPal account (or this email) or makes one, and stores `paypalAccountId` and `paypalVerified`. |
+
+`payWorker` change: on a job whose evidence includes `paypal_sale`, it never pays more than the commission for the sales `countSales` counts at that moment.
+
+`recordSale` change: its input may also carry `paypalCaptureId` (optional).
+
+### New addresses (all under `src/app/api/paypal/`)
+
+| Address | In | Out |
+|---|---|---|
+| `GET /api/paypal/setup` | nothing | `PayPalSetup` as JSON |
+| `POST /api/paypal/hold/order` | JSON `{ "jobId" }`; the caller's `dibs_person` cookie must be the job's poster | `{ "ok": true, "orderId" }` or `{ "ok": false, "message" }` |
+| `POST /api/paypal/hold/finish` | JSON `{ "jobId" }` | `{ "ok": true, "jobId", "holdEndsAt" }` or `{ "ok": false, "message" }` |
+| `POST /api/paypal/shop/order` | JSON `{ "ref" }` (the worker's code, or null) | `{ "ok": true, "orderId" }` or `{ "ok": false, "message" }` |
+| `POST /api/paypal/shop/finish` | JSON `{ "orderId" }` | `{ "ok": true, "paid", "thanksUrl", "creditedTo" }` or `{ "ok": false, "message" }` |
+| `POST /api/paypal/refund` | JSON `{ "orderId", "amountCents"? }`; the caller's cookie must be the poster of the sale's job | `{ "ok": true, "sale" }` or `{ "ok": false, "message" }` |
+| `GET /api/paypal/login/start?next=<path>` | `next` is a path on this site | Sends the browser to PayPal's sign-in. 404 when `PAYPAL_LOGIN_ON` is not `1`. |
+| `GET /api/paypal/login/return` | PayPal's `code` and `state` | Sets the `dibs_person` cookie and goes to `next` with `?paypal=confirmed`, or `?paypal=failed` |
+
+The old addresses that leave the page for PayPal (`/api/paypal/shop/start`, the `startHold` way) keep working as the fallback.
+
+The webhook also handles `PAYMENT.CAPTURE.REFUNDED` and `PAYMENT.CAPTURE.REVERSED` (it calls `refreshSale`).
+
+### New pages and screen pieces
+
+| File | What it is | Props |
+|---|---|---|
+| `src/app/shop/orders/page.tsx` | `/shop/orders`: the shop owner's orders, each with a Refund button | page |
+| `src/ui/PayPalButton.tsx` | PayPal's own button; PayPal's window opens over the page. Shows its own states: loading, window closed ("Nothing was locked" / "Nothing was taken") with the button again, error, done. | `{ kind: "hold"; jobId: string; doneHref?: string }` or `{ kind: "shop"; refCode?: string \| null; doneHref?: string }` |
+| `src/ui/PayPalLogin.tsx` | "Log in with PayPal" link. Draws nothing when the switch is off. With `confirmed` it shows "PayPal account confirmed". | `{ next?: string; confirmed?: boolean; failed?: boolean }` |
+| `src/ui/MoneyTrail.tsx` | A job's money trail with PayPal's reference on every line, and the date the hold ends. | `{ trail: MoneyTrail }` |
+| `src/ui/RefundButton.tsx` | Refund button for one order, with confirm, working, done and error states. | `{ paypalOrderId: string; keptCents: number }` |
+
+All four are client components with `export default`, styled only with the classes and variables in `globals.css`.

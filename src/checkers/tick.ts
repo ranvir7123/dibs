@@ -10,12 +10,24 @@ import { getDb } from "@/db/client";
 import { jobs, moneyMoves, results } from "@/db/schema";
 import { letGo, payWorker } from "@/money";
 import { settings } from "@/settings";
+import { handOverCheck, handOverOn, nextCheckIsSlow } from "./hand-over";
 import { runChecksAt } from "./run-checks";
+import { tickBusyHere, withTickLock } from "./tick-lock";
 
-/** A tick stops starting new work after this long, so it ends before the web host cuts it off. The rest runs on the next tick. */
-const TICK_BUDGET_MS = 240_000;
+/**
+ * A tick started through the site's address stops starting new work after
+ * this long, so it ends before a web call is cut off. The rest runs on the
+ * next tick. The tick run as its own program (scripts/tick.ts) has no such
+ * limit and passes its own, much longer, budget.
+ */
+const WEB_TICK_BUDGET_MS = 240_000;
 
-const holder = globalThis as unknown as { __dibsTickRunning?: boolean };
+export interface TickOptions {
+  /** How long this tick may keep starting new work, in thousandths of a second. */
+  budgetMs?: number;
+}
+
+const BUSY = "Another tick is still running, so this one did nothing.";
 const said = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 interface Owed {
@@ -53,16 +65,8 @@ async function owedByResult(jobIds: string[]): Promise<Owed[]> {
   }));
 }
 
-export async function tickAt(now: Date = new Date()): Promise<TickSummary> {
-  const summary: TickSummary = { ranAt: now, checksRun: 0, payoutsSent: 0, paidCents: 0, jobsEnded: 0, problems: [] };
-  if (holder.__dibsTickRunning) {
-    summary.problems.push("The last tick is still running, so this one did nothing.");
-    return summary;
-  }
-  holder.__dibsTickRunning = true;
-  const started = Date.now();
-  const outOfTime = () => Date.now() - started > TICK_BUDGET_MS;
-
+/** The two things a tick does to a result, with failures written to the summary instead of thrown. */
+function workers(summary: TickSummary, now: Date) {
   const check = async (claimId: string, resultId: string): Promise<boolean> => {
     try {
       await runChecksAt(claimId, now);
@@ -91,6 +95,99 @@ export async function tickAt(now: Date = new Date()): Promise<TickSummary> {
       summary.problems.push(`Payment for result ${resultId}: ${said(error)}`);
     }
   };
+  return { check, pay };
+}
+
+/**
+ * Closes one job that is past its end: one last check and payment for each
+ * result, then the rest of the hold is let go. Returns true when the job
+ * ended. When the hold has to be kept for now, the reason goes into
+ * summary.problems (or nothing is said, for an AI opinion still open to
+ * objection) and the next tick tries again.
+ */
+async function closeJob(job: { id: string }, now: Date, summary: TickSummary): Promise<boolean> {
+  const db = await getDb();
+  const { check, pay } = workers(summary, now);
+  const jobResults = await db.select().from(results).where(eq(results.jobId, job.id));
+  let allChecked = true;
+  for (const r of jobResults) {
+    if (!r.objectedAt && r.status !== "blocked") allChecked = (await check(r.claimId, r.id)) && allChecked;
+  }
+  for (const owed of await owedByResult([job.id])) {
+    if (owed.owedCents > 0 || owed.payoutStuck) await pay(owed.resultId);
+  }
+  // The hold is the only money there is. It is not let go while a worker is still owed, or a last check failed.
+  const unpaid = (await owedByResult([job.id])).filter((o) => o.owedCents > 0 || o.payoutStuck);
+  if (!allChecked || unpaid.length > 0) {
+    summary.problems.push(
+      `Job ${job.id} has ended but its hold is kept: ${unpaid.length ? `${unpaid.length} result(s) are still owed money` : "a last check did not finish"}. It is tried again on the next tick.`,
+    );
+    return false;
+  }
+  // An AI opinion the poster can still object to keeps the hold until its window closes.
+  // A job (21 days at most) plus the window (3 days) still fits inside a PayPal hold (29 days).
+  const stillOpen = (await db.select().from(results).where(eq(results.jobId, job.id))).some(
+    (r) => r.status === "waiting" && !r.objectedAt && r.objectionEndsAt && r.objectionEndsAt.getTime() > now.getTime(),
+  );
+  if (stillOpen) return false;
+  try {
+    await letGo(job.id);
+    summary.jobsEnded++;
+    return true;
+  } catch (error) {
+    summary.problems.push(`Letting go of the hold for job ${job.id}: ${said(error)}`);
+    return false;
+  }
+}
+
+/**
+ * The poster ends their own job early. The job's end is moved to now, then it
+ * is closed exactly as the tick closes a job past its end: every result gets
+ * one last check, workers are paid what they have earned, and only then is
+ * the rest of the hold let go. If that cannot finish at once (a last check
+ * failed, a payment is still going through, a tick is running), the job stays
+ * marked as over and the tick finishes it; "note" says so in plain words.
+ */
+export async function endJobAt(input: { jobId: string; posterId: string }, now: Date = new Date()): Promise<{ ended: boolean; note: string | null }> {
+  const db = await getDb();
+  const job = (await db.select().from(jobs).where(eq(jobs.id, input.jobId)))[0];
+  if (!job) throw new Error("No such job.");
+  if (job.posterId !== input.posterId) throw new Error("Only the person who posted this job can end it.");
+  if (job.status === "ended") return { ended: true, note: null };
+  if (job.status !== "open") throw new Error("This job has no money locked yet, so there is nothing to end.");
+
+  if (job.endsAt.getTime() > now.getTime()) {
+    await db
+      .update(jobs)
+      .set({ endsAt: now, card: { ...job.card, endsAt: now.toISOString() } })
+      .where(and(eq(jobs.id, job.id), eq(jobs.status, "open")));
+  }
+  const later = "The job is closed to new work. The last checks and payments are still finishing; the rest of the held money is let go as soon as they are done.";
+  if (tickBusyHere()) return { ended: false, note: later };
+
+  const summary: TickSummary = { ranAt: now, checksRun: 0, payoutsSent: 0, paidCents: 0, jobsEnded: 0, problems: [] };
+  const done = await withTickLock(() => closeJob(job, now, summary));
+  if (!done.ran) return { ended: false, note: later }; // a tick is running elsewhere; it closes the job
+  if (summary.problems.length) console.error("Ending job", job.id, summary.problems.join(" | "));
+  return { ended: done.value, note: done.value ? null : later };
+}
+
+export async function tickAt(now: Date = new Date(), options: TickOptions = {}): Promise<TickSummary> {
+  const summary: TickSummary = { ranAt: now, checksRun: 0, payoutsSent: 0, paidCents: 0, jobsEnded: 0, problems: [] };
+  try {
+    const done = await withTickLock(() => tickWork(now, summary, options.budgetMs ?? WEB_TICK_BUDGET_MS));
+    if (!done.ran) summary.problems.push(BUSY);
+  } catch (error) {
+    summary.problems.push(`The tick stopped early: ${said(error)}`);
+  }
+  return summary;
+}
+
+/** The tick's three jobs, in order. Called with the tick lock held. */
+async function tickWork(now: Date, summary: TickSummary, budgetMs: number): Promise<void> {
+  const started = Date.now();
+  const outOfTime = () => Date.now() - started > budgetMs;
+  const { check, pay } = workers(summary, now);
 
   try {
     const db = await getDb();
@@ -106,6 +203,17 @@ export async function tickAt(now: Date = new Date()): Promise<TickSummary> {
       if (outOfTime()) {
         summary.problems.push("Ran out of time; the remaining checks run on the next tick.");
         break;
+      }
+      // Online, a check where AI must watch or read something goes to its own
+      // background task, so one long video does not hold up everything else.
+      if (handOverOn() && (await nextCheckIsSlow(row.claimId).catch(() => false))) {
+        try {
+          const runId = await handOverCheck(row.claimId, row.resultId, now);
+          console.log(`Handed the slow check for result ${row.resultId} to a background task (run ${runId}).`);
+          continue;
+        } catch (error) {
+          summary.problems.push(`Could not hand the check for result ${row.resultId} to a background task (${said(error)}), so it was done here instead.`);
+        }
       }
       await check(row.claimId, row.resultId);
     }
@@ -140,39 +248,9 @@ export async function tickAt(now: Date = new Date()): Promise<TickSummary> {
     const over = await db.select().from(jobs).where(and(eq(jobs.status, "open"), lte(jobs.endsAt, now)));
     for (const job of over) {
       if (outOfTime()) break;
-      const jobResults = await db.select().from(results).where(eq(results.jobId, job.id));
-      let allChecked = true;
-      for (const r of jobResults) {
-        if (!r.objectedAt && r.status !== "blocked") allChecked = (await check(r.claimId, r.id)) && allChecked;
-      }
-      for (const owed of await owedByResult([job.id])) {
-        if (owed.owedCents > 0 || owed.payoutStuck) await pay(owed.resultId);
-      }
-      // The hold is the only money there is. It is not let go while a worker is still owed, or a last check failed.
-      const unpaid = (await owedByResult([job.id])).filter((o) => o.owedCents > 0 || o.payoutStuck);
-      if (!allChecked || unpaid.length > 0) {
-        summary.problems.push(
-          `Job ${job.id} has ended but its hold is kept: ${unpaid.length ? `${unpaid.length} result(s) are still owed money` : "a last check did not finish"}. It is tried again on the next tick.`,
-        );
-        continue;
-      }
-      // An AI opinion the poster can still object to keeps the hold until its window closes.
-      // A job (21 days at most) plus the window (3 days) still fits inside a PayPal hold (29 days).
-      const stillOpen = (await db.select().from(results).where(eq(results.jobId, job.id))).some(
-        (r) => r.status === "waiting" && !r.objectedAt && r.objectionEndsAt && r.objectionEndsAt.getTime() > now.getTime(),
-      );
-      if (stillOpen) continue;
-      try {
-        await letGo(job.id);
-        summary.jobsEnded++;
-      } catch (error) {
-        summary.problems.push(`Letting go of the hold for job ${job.id}: ${said(error)}`);
-      }
+      await closeJob(job, now, summary);
     }
   } catch (error) {
     summary.problems.push(`The tick stopped early: ${said(error)}`);
-  } finally {
-    holder.__dibsTickRunning = false;
   }
-  return summary;
 }

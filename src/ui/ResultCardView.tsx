@@ -7,6 +7,7 @@ import { Chart } from "./ChartView";
 import type { ChartPoint } from "./chart";
 import { ago, clock, count, dayMonth, firstName, plural, tone } from "./format";
 import { Icon, type IconName } from "./Icon";
+import { handInAddress } from "./handin";
 import { ObjectForm } from "./ObjectForm";
 import { RecordingRules } from "./RecordingRules";
 
@@ -66,7 +67,7 @@ export function ResultCardView({
           <RecordingRules
             title={job.title}
             mediaSeconds={result.measured.mediaSeconds ?? null}
-            fileUrl={result.handInKind === "file" ? playable(result.handInFile) : null}
+            fileUrl={result.handInKind === "file" ? handInAddress(result.handInFile) : null}
             rules={ruleChecks.map((check) => ({
               key: check.key,
               label: check.label,
@@ -147,17 +148,11 @@ export function StatusPill({ status }: { status: ResultCard["result"]["status"] 
   }
 }
 
-/** A file or link can be opened from the page only when it is a web address. Files kept on the server's own disk have no address. */
-function playable(where: string | null): string | null {
-  if (!where) return null;
-  return /^https?:\/\//i.test(where) ? where : null;
-}
-
 /** The posted video, as the drawing shows it: a dark frame with a button that opens the real thing. */
 function Clip({ card }: { card: ResultCard }) {
   const { result, worker } = card;
   const length = result.measured.mediaSeconds;
-  const href = playable(result.handInUrl ?? result.handInFile);
+  const href = handInAddress(result.handInUrl ?? result.handInFile);
   const isFile = result.handInKind === "file";
   const alt = tone(worker.name) === "a2" || tone(worker.name) === "a4";
   return (

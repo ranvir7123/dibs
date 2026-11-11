@@ -12,7 +12,7 @@ export const TRIES = [
   "Bring me 10 paying customers this month",
 ];
 
-const PROOF_COLOUR = { strong: "var(--paid)", medium: "var(--held)", weak: "var(--stop)" } as const;
+const PROOF_COLOUR = { strong: "var(--paid)", medium: "var(--text)", weak: "var(--stop-text)" } as const;
 
 function Row({ icon, label, children }: { icon: IconName; label: string; children: ReactNode }) {
   return (

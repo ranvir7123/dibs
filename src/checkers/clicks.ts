@@ -154,3 +154,19 @@ export async function countClicks(code: string): Promise<ClickCounts> {
     mostFromOneVisitor: top?.n ?? 0,
   };
 }
+
+/**
+ * The address a tracked link sends its visitor on to: the poster's page with
+ * the worker's code added as "ref", keeping whatever the address already
+ * carried. The shop reads "ref" to put the worker's code on the PayPal order,
+ * which is how a sale is counted for the right worker.
+ */
+export function onwardAddress(targetUrl: string, code: string): string {
+  try {
+    const url = new URL(targetUrl);
+    url.searchParams.set("ref", code);
+    return url.toString();
+  } catch {
+    return targetUrl; // not a full web address: send the visitor on as it is
+  }
+}

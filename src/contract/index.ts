@@ -18,12 +18,14 @@ export { settings, type Settings } from "../settings";
 
 // Lane A: money. Stubs until lane A builds them.
 export { confirmHold, letGo, payWorker, recordSale, startHold } from "../money";
+// Lane A: the PayPal additions of 12 Nov (docs/CONTRACT.md, section 10).
+export { countSales, getMoneyTrail, getPayPalSetup, getShopOrders, joinWithPayPal, refreshSale, refundSale, startHoldOrder } from "../money";
 
 // Lane B: checkers. Stubs until lane B builds them.
-export { runChecks, storeHandInFile, tick, writeJobCard } from "../checkers";
+export { endJob, runChecks, storeHandInFile, tick, writeJobCard } from "../checkers";
 
 // Start lane: reads and plain writes. Built and tested.
-export { getBoard, getJobMoney, getJobPage, getMyJobs, getMyWork, getPerson } from "../db/read";
+export { getBoard, getJobMoney, getJobPage, getMyJobs, getMyWork, getPeople, getPerson } from "../db/read";
 export { callDibs, createJob, handIn, joinDibs, objectToOpinion } from "../db/write";
 export { getDb, type Db } from "../db/client";
 

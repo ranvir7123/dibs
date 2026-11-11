@@ -5,7 +5,7 @@ import { closeDb, getDb, type Db } from "@/db/client";
 import { clicks, trackedLinks } from "@/db/schema";
 import { seed } from "@/db/seed";
 import { settings } from "@/settings";
-import { burstReason, countClicks, recordClick, REPEAT_REASON, visitorKeyFor } from "./clicks";
+import { burstReason, countClicks, recordClick, REPEAT_REASON, visitorKeyFor, onwardAddress } from "./clicks";
 
 let db: Db;
 beforeAll(async () => {
@@ -72,7 +72,7 @@ describe("tracked links", () => {
     const request = new Request("http://localhost:3002/r/testtwo2", { headers: { "x-forwarded-for": "203.0.113.77, 10.0.0.1", "user-agent": "Mozilla/5.0" } });
     const response = await GET(request, { params: Promise.resolve({ code: "testtwo2" }) });
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://kettleandclove.example.com/launch");
+    expect(response.headers.get("location")).toBe("https://kettleandclove.example.com/launch?ref=testtwo2");
     expect((await countClicks("testtwo2")).clicksTotal).toBe(before + 1);
     const stored = await db.select().from(clicks).where(eq(clicks.visitorKey, visitorKeyFor("203.0.113.77", "Mozilla/5.0")));
     expect(stored).toHaveLength(1);
@@ -82,5 +82,15 @@ describe("tracked links", () => {
       expect(missing.status).toBe(404);
     }
     expect(await recordClick("nosuchcd", "v")).toBeNull();
+  });
+});
+
+describe("where a tracked link sends its visitor", () => {
+  it("adds the worker's code, so the shop can put it on the PayPal order", () => {
+    expect(onwardAddress("http://localhost:3005/shop", "abc12345")).toBe("http://localhost:3005/shop?ref=abc12345");
+  });
+  it("keeps what the address already carried, and replaces an old code", () => {
+    expect(onwardAddress("https://shop.example.com/scarf?colour=red#top", "abc12345")).toBe("https://shop.example.com/scarf?colour=red&ref=abc12345#top");
+    expect(onwardAddress("https://shop.example.com/?ref=someoneelse", "abc12345")).toBe("https://shop.example.com/?ref=abc12345");
   });
 });

@@ -42,16 +42,17 @@ export async function whoseCode(code: string | null): Promise<{ code: string; wo
 }
 
 /** Starts the buyer's PayPal order and returns PayPal's page to pay on. */
-export async function startShopOrder(input: { code: string | null; base: string }): Promise<{ paypalOrderId: string; approveUrl: string }> {
+/** With inWindow the order is for PayPal's button, whose window opens over the page, and carries no return address. */
+export async function startShopOrder(input: { code: string | null; base: string; inWindow?: boolean }): Promise<{ paypalOrderId: string; approveUrl: string }> {
   const back = input.code ? `?ref=${encodeURIComponent(input.code)}` : "";
   const order = await getPayPal().createSaleOrder({
     requestId: `sale-${randomBytes(12).toString("hex")}`,
     amountCents: shopItem.priceCents,
     description: `${shopItem.shopName}: ${shopItem.name}`,
     customId: SALE_LABEL + (input.code ?? ""),
-    returnUrl: `${input.base}/api/paypal/shop/return`,
-    cancelUrl: `${input.base}/shop${back}${back ? "&" : "?"}paid=cancelled`,
+    ...(input.inWindow ? {} : { returnUrl: `${input.base}/api/paypal/shop/return`, cancelUrl: `${input.base}/shop${back}${back ? "&" : "?"}paid=cancelled` }),
   });
+  if (input.inWindow) return { paypalOrderId: order.id, approveUrl: order.approveUrl ?? "" };
   if (!order.approveUrl) throw new Error("PayPal did not give a page to pay on.");
   return { paypalOrderId: order.id, approveUrl: order.approveUrl };
 }
@@ -95,7 +96,7 @@ export async function finishShopOrder(paypalOrderId: string): Promise<ShopOutcom
   const outcome: ShopOutcome = { paypalOrderId: order.id, paid, paypalRef: order.capture?.id ?? null, amountCents: order.capture?.amountCents ?? order.amountCents, code, creditedTo: null, notCountedBecause: null };
   if (!paid || !code || !order.capture) return outcome;
   try {
-    await recordSale({ paypalOrderId: order.id, linkCode: code, amountCents: order.capture.amountCents });
+    await recordSale({ paypalOrderId: order.id, linkCode: code, amountCents: order.capture.amountCents, paypalCaptureId: order.capture.id });
     outcome.creditedTo = (await whoseCode(code))?.workerName ?? null;
   } catch (error) {
     if (!(error instanceof MoneyRefusal)) throw error; // a fault, not a "no": let the caller try again

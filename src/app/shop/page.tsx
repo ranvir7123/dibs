@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import { formatCents } from "@/contract/money";
 import { cleanCode, shopItem, whoseCode } from "@/money/shop";
+import PayPalButton from "@/ui/PayPalButton";
 import styles from "./shop.module.css";
 
 export const dynamic = "force-dynamic";
@@ -68,13 +69,18 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
           {paid === "cancelled" && <p className={`${styles.notice} ${styles.wait}`}>You left PayPal before paying. Nothing was taken.</p>}
           {paid === "failed" && <p className={`${styles.notice} ${styles.stop}`}>PayPal could not take the payment, so nothing was taken. Please try again.</p>}
 
-          <form className={styles.pay} action="/api/paypal/shop/start" method="post">
-            {codeToSend && <input type="hidden" name="ref" value={codeToSend} />}
-            <button className={`btn main-b ${styles.payBtn}`} type="submit">
-              Pay {formatCents(shopItem.priceCents)} with PayPal
-            </button>
-            <p className={styles.small}>You pay on PayPal&rsquo;s own page with a PayPal test account, then come back here.</p>
-          </form>
+          <div className={styles.pay}>
+            {/* PayPal's own button: its window opens over this page. If it cannot load, the older button below it is shown instead. */}
+            <PayPalButton kind="shop" refCode={codeToSend}>
+              <form action="/api/paypal/shop/start" method="post">
+                {codeToSend && <input type="hidden" name="ref" value={codeToSend} />}
+                <button className={`btn main-b ${styles.payBtn}`} type="submit">
+                  Pay {formatCents(shopItem.priceCents)} with PayPal
+                </button>
+              </form>
+            </PayPalButton>
+            <p className={styles.small}>You pay {formatCents(shopItem.priceCents)} in PayPal&rsquo;s own window with a PayPal test account. This page stays open.</p>
+          </div>
         </div>
       </section>
     </main>

@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 // payment, but no test here moves money.
 const payWorker = vi.fn();
 const letGo = vi.fn();
-vi.mock("@/money", () => ({ payWorker: (id: string) => payWorker(id), letGo: (id: string) => letGo(id) }));
+vi.mock("@/money", async (importActual) => ({ ...(await importActual<typeof import("@/money")>()), payWorker: (id: string) => payWorker(id), letGo: (id: string) => letGo(id) }));
 
 import { GET, POST } from "@/app/api/tick/route";
 import { closeDb, getDb, type Db } from "@/db/client";
@@ -13,7 +13,7 @@ import { newId } from "@/db/ids";
 import { jobs, moneyMoves, results } from "@/db/schema";
 import { seed } from "@/db/seed";
 import { settings } from "@/settings";
-import { tick } from "./index";
+import { endJob, tick } from "./index";
 import { NotAVideoLink, useVideoReader } from "./video-site";
 
 let db: Db;
@@ -171,6 +171,52 @@ describe("tick", () => {
     expect(summary.problems.join("\n")).toContain("It will be tried again");
     expect(summary).toMatchObject({ payoutsSent: 1, paidCents: 500 });
     expect(summary.checksRun).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("the poster ending a job early", () => {
+  it("does the last check and payment for each result, then lets the hold go", async () => {
+    const before = new Date();
+    const outcome = await endJob({ jobId: "job_loom_sales", posterId: "per_loom" });
+    expect(outcome).toEqual({ ended: true, note: null });
+    expect(letGo).toHaveBeenCalledWith("job_loom_sales");
+    const job = (await db.select().from(jobs).where(eq(jobs.id, "job_loom_sales")))[0];
+    expect(job.endsAt.getTime()).toBeLessThanOrEqual(Date.now());
+    expect(job.endsAt.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000);
+    expect(job.card.endsAt).toBe(job.endsAt.toISOString());
+    // Both results on the job were checked one last time.
+    const checked = await db.select().from(results).where(eq(results.jobId, "job_loom_sales"));
+    expect(checked.every((r) => r.lastCheckedAt && r.lastCheckedAt.getTime() >= before.getTime() - 1000)).toBe(true);
+  });
+
+  it("is only for the person who posted the job, and only once money is locked", async () => {
+    await expect(endJob({ jobId: "job_loom_sales", posterId: "per_dev" })).rejects.toThrow("Only the person who posted this job can end it.");
+    await expect(endJob({ jobId: "job_nope", posterId: "per_loom" })).rejects.toThrow("No such job.");
+    expect(letGo).not.toHaveBeenCalled();
+    const job = (await db.select().from(jobs).where(eq(jobs.id, "job_loom_sales")))[0];
+    expect(job.endsAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("keeps the hold when a worker is still owed, closes the job to new work, and the next tick finishes it", async () => {
+    await setEarned("res_loom_sales_dev", 2000 + 500); // dev has earned $5.00 more than was paid, and PayPal is down
+    const outcome = await endJob({ jobId: "job_loom_sales", posterId: "per_loom" });
+    expect(outcome.ended).toBe(false);
+    expect(outcome.note).toContain("let go as soon as they are done");
+    expect(payWorker).toHaveBeenCalledWith("res_loom_sales_dev");
+    expect(letGo).not.toHaveBeenCalled();
+    const job = (await db.select().from(jobs).where(eq(jobs.id, "job_loom_sales")))[0];
+    expect(job.status).toBe("open");
+    expect(job.endsAt.getTime()).toBeLessThanOrEqual(Date.now());
+
+    payWorker.mockImplementation(async (id: string) => {
+      for (const kind of ["take", "payout"] as const) {
+        await db.insert(moneyMoves).values({ id: newId("mov"), jobId: "job_loom_sales", resultId: id, personId: "per_dev", kind, amountCents: 500, status: "done", note: "test" });
+      }
+      return { paidCents: 500, take: null, payout: null };
+    });
+    const later = await tick(soon());
+    expect(letGo).toHaveBeenCalledWith("job_loom_sales");
+    expect(later.jobsEnded).toBe(1);
   });
 });
 

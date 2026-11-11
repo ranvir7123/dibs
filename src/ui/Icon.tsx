@@ -7,7 +7,7 @@
 export type IconName =
   | "home" | "jobs" | "plus" | "list" | "wallet" | "people" | "gear" | "eye" | "heart" | "chat" | "share" | "tap"
   | "ok" | "no" | "warn" | "shield" | "clock" | "down" | "up" | "play" | "flag" | "lock" | "spark"
-  | "link" | "upload" | "copy" | "back" | "right" | "user" | "file";
+  | "link" | "upload" | "copy" | "back" | "right" | "user" | "file" | "tick";
 
 export function Icon({ name, fill = false }: { name: IconName; fill?: boolean }) {
   return (
@@ -53,6 +53,7 @@ export function IconSprite() {
         <symbol id="right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></symbol>
         <symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.500" /><path d="M5 20c0-3.500 3-6 7-6s7 2.500 7 6" /></symbol>
         <symbol id="file" viewBox="0 0 24 24"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M14 3v5h5" /></symbol>
+        <symbol id="tick" viewBox="0 0 24 24"><path d="M5 12.500l4.500 4.500L19 7.500" /></symbol>
       </defs>
     </svg>
   );

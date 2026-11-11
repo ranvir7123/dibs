@@ -2,7 +2,7 @@ import Link from "next/link";
 import { formatCents, getBoard, getMyWork } from "@/contract";
 import type { BoardJob, MyWorkItem, Person } from "@/contract/types";
 import { CallDibs } from "@/ui/CallDibs";
-import { CATEGORIES, categoryLabel, isCategory } from "@/ui/format";
+import { CATEGORIES, categoryLabel, isCategory, plural } from "@/ui/format";
 import { Icon } from "@/ui/Icon";
 import { JobTile } from "@/ui/JobTile";
 import { Empty } from "@/ui/States";
@@ -19,18 +19,43 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
   const [board, mine] = await Promise.all([getBoard(viewer?.id), viewer ? getMyWork(viewer.id) : null]);
   const taken = new Map((mine?.items ?? []).map((item) => [item.job.id, item]));
   const jobs = category ? board.jobs.filter((item) => item.job.category === category) : board.jobs;
+  // Money still held in PayPal across every job on the board.
+  const heldNowCents = board.jobs.reduce((sum, item) => sum + item.money.heldCents, 0);
 
   return (
     <>
-      <div className="hello">
-        <h1>The money is already waiting.</h1>
-        <p>Each job has its pay locked in PayPal. Do the job, and you&apos;re paid when the result is real. No one has to approve you.</p>
-      </div>
+      <section className="hero">
+        <div>
+          <span className="eyebrow">Pay only for real results</span>
+          <h1>The money is already waiting.</h1>
+          <p>Every job here has its full pay locked in PayPal before it is listed. Do the job, and you&apos;re paid when the result is real. No one has to approve you.</p>
+        </div>
+        <div className="nums">
+          <div className="numbox">
+            <span>Locked in PayPal now</span>
+            <b className="num">{formatCents(heldNowCents)}</b>
+            <small>Across {plural(board.categoryCounts.all, "open job")}</small>
+          </div>
+          {viewer ? (
+            <Link href="/payouts" className="numbox mine">
+              <span>You&apos;ve earned</span>
+              <b className="num">{formatCents(board.viewerEarnedCents)}</b>
+              <small>Paid to your PayPal</small>
+            </Link>
+          ) : (
+            <Link href="/you" className="numbox mine">
+              <span>Start earning</span>
+              <b>Say who you are</b>
+              <small>Then call dibs on a job</small>
+            </Link>
+          )}
+        </div>
+      </section>
 
       <div className="board-top">
         <nav className="tabs" aria-label="Kinds of job">
           <Link href="/" className={category ? undefined : "on"} aria-current={category ? undefined : "page"}>
-            All <b>{board.categoryCounts.all}</b>
+            All jobs <b>{board.categoryCounts.all}</b>
           </Link>
           {CATEGORIES.map((c) => (
             <Link key={c} href={`/?kind=${c}`} className={category === c ? "on" : undefined} aria-current={category === c ? "page" : undefined}>
@@ -38,17 +63,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
             </Link>
           ))}
         </nav>
-        {viewer ? (
-          <Link href="/payouts" className="pill paid num">
-            <Icon name="wallet" />
-            You&apos;ve earned {formatCents(board.viewerEarnedCents)}
-          </Link>
-        ) : (
-          <Link href="/you" className="pill wait">
-            <Icon name="user" />
-            Say who you are to start earning
-          </Link>
-        )}
+        <span className="pill wait">Newest first</span>
       </div>
 
       {jobs.length > 0 ? (
@@ -83,6 +98,14 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
           A job shows up here once a business has locked its pay in PayPal. Be the first to post one.
         </Empty>
       )}
+
+      <section className="how">
+        <h2>How Dibs pays without anyone approving</h2>
+        <p>
+          The business locks the full pay in PayPal before the job is listed. A checker built for that job measures the real result: views read from the video site, clicks on your own link, sales seen by PayPal, or AI
+          watching your recording. When it passes, PayPal pays you. What isn&apos;t earned goes back to the business.
+        </p>
+      </section>
     </>
   );
 }

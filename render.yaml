@@ -1,0 +1,162 @@
+# Dibs on Render. This one file tells Render what to make:
+#
+#   dibs        the site, always on
+#   dibs-db     its database (Postgres)
+#   dibs-tick   a timer that runs the checks once a minute
+#   dibs-checks background tasks that do the slow checks (AI watching a video)
+#
+# How to use it is in docs/GOING-ONLINE.md. No key or password is written
+# here: where a line says "sync: false", Render asks you for the value once,
+# when you first make the services. Every part is in one region so they can
+# reach each other over Render's own network.
+
+databases:
+  - name: dibs-db
+    plan: 0.1c-256mb # the smallest paid size. "free" also works, but Render deletes a free database 30 days after it is made.
+    region: singapore
+    # No "ipAllowList" line: the database can be reached from outside Render with its
+    # password, over an encrypted link. The filming reset and the click attack need
+    # that from the laptop (GOING-ONLINE.md, "Only for filming").
+
+services:
+  # ------------------------------------------------------------------ the site
+  - type: web
+    name: dibs
+    runtime: node
+    plan: 0.5c-512mb # always on. A free one sleeps after 15 minutes and takes about a minute to wake.
+    region: singapore
+    # devDependencies are needed too: they hold TypeScript (to build) and tsx (to run the scripts).
+    buildCommand: npm install --include=dev && npm run build
+    # Before each new version starts: create or update the tables, and load the
+    # sample jobs if the database has never had anyone in it. It never wipes anything.
+    preDeployCommand: npm run online:setup
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: dibs-uploads # recordings and files that workers hand in; kept across new builds
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dibs-db
+          property: connectionString
+      - key: DIBS_FILES_DIR
+        value: /var/data/hand-ins
+      - key: TICK_SECRET # the password for /api/tick. Render makes one up; nobody needs to know it.
+        generateValue: true
+      - key: DIBS_BASE_URL # the site's own public address, filled in after the site exists (GOING-ONLINE.md)
+        sync: false
+      # PayPal, test mode
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: PAYPAL_LOGIN_ON
+        sync: false
+      - key: PAYPAL_TEST_BUYER_EMAIL
+        sync: false
+      - key: PAYPAL_TEST_WORKER_EMAIL
+        sync: false
+      - key: PAYPAL_TEST_WORKER2_EMAIL
+        sync: false
+      # AI and the video site
+      - key: GOOGLE_AI_API_KEY
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # The slow checks as background tasks (see dibs-checks below). Both must be
+      # filled for the site to hand work over; otherwise it does the work itself.
+      - key: DIBS_CHECKS_ON_RENDER
+        sync: false
+      - key: RENDER_API_KEY
+        sync: false
+      - key: DIBS_CHECKS_WORKFLOW
+        fromService:
+          name: dibs-checks
+          type: workflow
+          property: slug
+
+  # ------------------------------------------------------------------ the timer
+  - type: cron
+    name: dibs-tick
+    runtime: node
+    plan: 0.5c-512mb
+    region: singapore
+    schedule: "* * * * *" # every minute. Only one run at a time: the next waits for the last to finish.
+    buildCommand: npm install --include=dev
+    startCommand: npm run tick
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dibs-db
+          property: connectionString
+      # The site keeps uploaded files on its own disk. The timer fetches them from
+      # the site over Render's own network when it needs one.
+      - key: DIBS_WEB_HOSTPORT
+        fromService:
+          name: dibs
+          type: web
+          property: hostport
+      # Every key below is read from the site's own settings, so each is typed once only.
+      - key: DIBS_BASE_URL
+        fromService: { name: dibs, type: web, envVarKey: DIBS_BASE_URL }
+      - key: PAYPAL_CLIENT_ID
+        fromService: { name: dibs, type: web, envVarKey: PAYPAL_CLIENT_ID }
+      - key: PAYPAL_CLIENT_SECRET
+        fromService: { name: dibs, type: web, envVarKey: PAYPAL_CLIENT_SECRET }
+      - key: PAYPAL_WEBHOOK_ID
+        fromService: { name: dibs, type: web, envVarKey: PAYPAL_WEBHOOK_ID }
+      - key: PAYPAL_TEST_BUYER_EMAIL
+        fromService: { name: dibs, type: web, envVarKey: PAYPAL_TEST_BUYER_EMAIL }
+      - key: PAYPAL_TEST_WORKER_EMAIL
+        fromService: { name: dibs, type: web, envVarKey: PAYPAL_TEST_WORKER_EMAIL }
+      - key: PAYPAL_TEST_WORKER2_EMAIL
+        fromService: { name: dibs, type: web, envVarKey: PAYPAL_TEST_WORKER2_EMAIL }
+      - key: GOOGLE_AI_API_KEY
+        fromService: { name: dibs, type: web, envVarKey: GOOGLE_AI_API_KEY }
+      - key: YOUTUBE_API_KEY
+        fromService: { name: dibs, type: web, envVarKey: YOUTUBE_API_KEY }
+      - key: ANTHROPIC_API_KEY
+        fromService: { name: dibs, type: web, envVarKey: ANTHROPIC_API_KEY }
+      - key: DIBS_CHECKS_ON_RENDER
+        fromService: { name: dibs, type: web, envVarKey: DIBS_CHECKS_ON_RENDER }
+      - key: RENDER_API_KEY
+        fromService: { name: dibs, type: web, envVarKey: RENDER_API_KEY }
+      - key: DIBS_CHECKS_WORKFLOW
+        fromService:
+          name: dibs-checks
+          type: workflow
+          property: slug
+
+  # ------------------------------------------------------------------ the slow checks
+  # Render Workflows: each check where AI watches a video or a recording runs
+  # as its own background task, so one slow video never holds up the others.
+  - type: workflow
+    name: dibs-checks
+    runtime: node
+    region: singapore
+    buildCommand: npm install --include=dev
+    startCommand: npm run checks:worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dibs-db
+          property: connectionString
+      - key: DIBS_WEB_HOSTPORT
+        fromService:
+          name: dibs
+          type: web
+          property: hostport
+      - key: DIBS_BASE_URL
+        fromService: { name: dibs, type: web, envVarKey: DIBS_BASE_URL }
+      - key: GOOGLE_AI_API_KEY
+        fromService: { name: dibs, type: web, envVarKey: GOOGLE_AI_API_KEY }
+      - key: YOUTUBE_API_KEY
+        fromService: { name: dibs, type: web, envVarKey: YOUTUBE_API_KEY }
+      - key: ANTHROPIC_API_KEY
+        fromService: { name: dibs, type: web, envVarKey: ANTHROPIC_API_KEY }

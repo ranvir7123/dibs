@@ -5,16 +5,17 @@
  * status "paid" (lane A does that when money goes out).
  */
 import { stat } from "node:fs/promises";
-import { and, asc, desc, eq, gte, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull } from "drizzle-orm";
 import { formatCents } from "@/contract/money";
 import type { Check, CheckGroup, CheckReport, JobCard, Measured, ResultStatus } from "@/contract/types";
 import { getDb } from "@/db/client";
 import { newId } from "@/db/ids";
-import { checks, claims, jobs, people, readings, results, sales, trackedLinks } from "@/db/schema";
+import { checks, claims, jobs, people, readings, results, trackedLinks } from "@/db/schema";
+import { countSales } from "@/money";
 import { settings } from "@/settings";
 import { clicksLookReal, viewsLookReal } from "./cheat-tests";
 import { countClicks, type ClickCounts } from "./clicks";
-import { fileKind, handInPath } from "./files";
+import { fileKind, handInPath, reachableHandIn } from "./files";
 import { earnedFor } from "./pay";
 import { getVideoReader, NotAVideoLink, publicVideoUrl, videoIdFrom, type VideoStats } from "./video-site";
 import { giveOpinion, readHandIn, readTextFile, watchPromo, watchRecording, type RuleSeen } from "./watch";
@@ -179,7 +180,8 @@ export async function runChecksAt(claimId: string, now: Date = new Date()): Prom
         else {
           const id = videoIdFrom(result.handInUrl ?? "");
           if (!id) throw new NotAVideoLink();
-          const base = process.env.DIBS_BASE_URL?.trim().replace(/\/$/, "");
+          // The site's public address: set by hand, or (online) the one the host gives the site itself.
+          const base = (process.env.DIBS_BASE_URL?.trim() || process.env.RENDER_EXTERNAL_URL?.trim())?.replace(/\/$/, "");
           const seen = await watchPromo({ url: publicVideoUrl(id), card, posterName: poster.name, trackedLink: link ? `${base ?? ""}/r/${link.code}` : null });
           out.drafts.push(groupedCheck("in_video", "In the video", seen.rules));
           if (out.measured.mediaSeconds === undefined && seen.mediaSeconds !== null) out.measured.mediaSeconds = seen.mediaSeconds;
@@ -228,9 +230,18 @@ export async function runChecksAt(claimId: string, now: Date = new Date()): Prom
       }
 
       if (evidence.includes("paypal_sale")) {
-        const sold = (await db.select({ n: sql<number>`count(*)`.mapWith(Number) }).from(sales).where(eq(sales.claimId, claimId)))[0].n;
+        // Only sales the money side says count: paid, not refunded, and past the short wait
+        // in which a buyer can still be refunded. Anything else would show as earned and never be paid.
+        const tally = await countSales(claimId, now);
+        const sold = tally.counted;
         out.measured.sales = sold;
-        out.drafts.push(draft("sales_real", "cheat", "Sales look real", 1, 1, sold === 0 ? "No sales through this link yet." : `${sold} paid PayPal order${sold === 1 ? "" : "s"} carr${sold === 1 ? "ies" : "y"} this worker's code.`));
+        const orders = (n: number) => `${n} paid PayPal order${n === 1 ? "" : "s"}`;
+        const notes = [
+          sold === 0 ? "No sales count through this link yet." : `${orders(sold)} carr${sold === 1 ? "ies" : "y"} this worker's code.`,
+          tally.waiting > 0 ? `${tally.waiting} more ${tally.waiting === 1 ? "is" : "are"} too new to count yet.` : "",
+          tally.refunded > 0 ? `${tally.refunded} ${tally.refunded === 1 ? "was" : "were"} refunded and ${tally.refunded === 1 ? "does" : "do"} not count.` : "",
+        ];
+        out.drafts.push(draft("sales_real", "cheat", "Sales look real", 1, 1, notes.filter(Boolean).join(" ")));
       }
 
       if (link && (evidence.includes("tracked_link") || evidence.includes("paypal_sale"))) {
@@ -342,14 +353,20 @@ async function handedInWork(claimId: string, kind: string, url: string | null, f
   if (!file) throw new CannotCheck("Nothing was handed in for AI to look at.");
   ownFile(claimId, file);
   const type = fileKind(file);
-  if (type.kind === "video") return { kind: "video", video: { kind: "file", path: handInPath(file), mimeType: type.mimeType } };
-  if (type.kind === "text") return { kind: "text", text: await readTextFile(handInPath(file)).catch(asCannotCheck) };
+  if (type.kind === "video") return { kind: "video", video: { kind: "file", path: await reachable(file), mimeType: type.mimeType } };
+  if (type.kind === "text") return { kind: "text", text: await readTextFile(await reachable(file)).catch(asCannotCheck) };
   throw new CannotCheck("AI cannot open this kind of file yet. Please hand in a video (.mp4, .mov, .webm) or a plain text file (.txt, .md).");
 }
 
 /** A worker may only hand in a file that was uploaded for their own claim. */
 function ownFile(claimId: string, file: string): void {
   if (!file.startsWith(`${claimId}/`) || file.includes("..")) throw new CannotCheck("That file was not uploaded for this job. Please upload your file again.");
+}
+
+/** The file's path on this machine, fetched from the site first when the tick runs somewhere else. */
+async function reachable(file: string): Promise<string> {
+  handInPath(file); // refuses a path outside the uploads folder before anything is fetched
+  return reachableHandIn(file);
 }
 
 function asCannotCheck(error: unknown): never {
@@ -362,7 +379,7 @@ async function checkFile(out: Outcome, claimId: string, card: JobCard, posterNam
   ownFile(claimId, file);
   const type = fileKind(file);
   if (type.kind === "other") throw new CannotCheck("AI cannot open this kind of file yet. Please hand in a video (.mp4, .mov, .webm) or a plain text file (.txt, .md).");
-  const full = handInPath(file);
+  const full = await reachable(file);
 
   if (type.kind === "text") {
     const read = await readHandIn({ text: await readTextFile(full).catch(asCannotCheck), card, posterName });

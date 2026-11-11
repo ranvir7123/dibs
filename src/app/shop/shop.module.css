@@ -1,61 +1,62 @@
-/* The small shop for the sales demo. Dark only. Colours, corners and type
-   come from the approved drawing through the variables in globals.css. */
+/* The small shop for the sales demo. It wears the same look as Dibs: colours,
+   corners and type come from the variables in globals.css. */
 
-.page { max-width: 920px; margin: 0 auto; }
+.page { max-width: 960px; margin: 0 auto; padding: 32px 24px 72px; }
 
-.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 4px 20px; min-width: 0; }
-.shopName { font: italic 400 30px/1.1 var(--serif); min-width: 0; overflow-wrap: anywhere; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 4px 24px; min-width: 0; }
+.shopName { font: 900 30px/1.1 var(--sans); letter-spacing: -0.04em; min-width: 0; overflow-wrap: anywhere; }
 .test { flex: none; }
 
-.card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); background: var(--app); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; }
+.card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); background: var(--card); border-radius: var(--r-card); overflow: hidden; }
 
 /* The product picture is drawn, so the page needs no image file. */
-.picture { position: relative; min-height: 420px; background:
+.picture { position: relative; min-height: 440px; background:
     repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 2px, transparent 2px 9px),
     repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 2px, transparent 2px 9px),
     linear-gradient(135deg, #c9b79a 0%, #a8916f 55%, #8b7556 100%); }
 .picture::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 26px; background: repeating-linear-gradient(90deg, #8b7556 0 3px, transparent 3px 8px); opacity: .9; }
-.pictureTag { position: absolute; left: 16px; top: 16px; display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 999px; background: rgba(8,10,14,.62); font-size: 12px; font-weight: 500; }
+.pictureTag { position: absolute; left: 16px; top: 16px; display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: 1000px; background: rgba(21,19,10,.72); color: #fff3c4; font-size: 13px; font-weight: 700; }
 
-.body { display: flex; flex-direction: column; gap: 18px; padding: 32px; min-width: 0; }
-.name { font: 600 26px/1.2 var(--sans); letter-spacing: -.01em; overflow-wrap: anywhere; }
-.blurb { color: var(--mute); overflow-wrap: anywhere; }
-.price { font: 600 34px/1 var(--sans); font-variant-numeric: tabular-nums; }
-.priceNote { color: var(--mute); font-size: 13px; margin-top: 6px; }
+.body { display: flex; flex-direction: column; gap: 20px; padding: 36px; min-width: 0; }
+.name { font: 900 34px/1.1 var(--sans); letter-spacing: -0.035em; overflow-wrap: anywhere; text-wrap: balance; }
+.blurb { color: var(--sec); overflow-wrap: anywhere; }
+.price { font: 900 40px/1 var(--sans); letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
+.priceNote { color: var(--mute); font-size: 14px; line-height: 20px; margin-top: 8px; }
 
-.from { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-in); background: var(--inset); font-size: 14px; min-width: 0; }
-.from strong { font-weight: 600; overflow-wrap: anywhere; }
+.from { display: flex; gap: 12px; align-items: flex-start; padding: 16px; border-radius: var(--r-in); background: var(--inset); font-size: 15px; line-height: 22px; min-width: 0; }
+.from strong { font-weight: 700; overflow-wrap: anywhere; }
 .from span { min-width: 0; overflow-wrap: anywhere; }
 .dot { flex: none; width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; background: var(--paid); }
 .dot.warn { background: var(--held); }
 
-.notice { padding: 12px 14px; border-radius: var(--r-in); font-size: 14px; }
-.notice.stop { background: rgba(255,111,125,.13); color: var(--stop); }
-.notice.wait { background: var(--inset); color: var(--mute); }
+.notice { padding: 16px; border-radius: var(--r-in); font-size: 15px; line-height: 22px; }
+.notice.stop { background: var(--stop-soft); color: var(--stop-text); }
+.notice.wait { background: var(--wash); color: var(--sec); }
 
-.pay { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
-.payBtn { width: 100%; height: 48px; font-size: 15px; }
-.small { color: var(--mute); font-size: 13px; }
+.pay { margin-top: auto; display: flex; flex-direction: column; gap: 12px; }
+.payBtn { width: 100%; }
+.small { color: var(--mute); font-size: 14px; line-height: 20px; }
 
 /* thank-you page */
-.done { max-width: 560px; margin: 0 auto; background: var(--app); border: 1px solid var(--line); border-radius: 22px; padding: 32px; display: flex; flex-direction: column; gap: 18px; }
-.doneTitle { font: 600 26px/1.2 var(--sans); letter-spacing: -.01em; }
-.rows { display: grid; gap: 0; border: 1px solid var(--line); border-radius: var(--r-in); overflow: hidden; }
-.row { display: flex; justify-content: space-between; gap: 16px; padding: 12px 14px; font-size: 14px; min-width: 0; }
+.done { max-width: 560px; margin: 0 auto; background: var(--card); border-radius: var(--r-card); padding: 36px; display: flex; flex-direction: column; gap: 20px; }
+.doneTitle { font: 900 34px/1.1 var(--sans); letter-spacing: -0.035em; text-wrap: balance; overflow-wrap: anywhere; }
+.rows { display: grid; gap: 0; border-radius: var(--r-in); background: var(--inset); overflow: hidden; }
+.row { display: flex; justify-content: space-between; gap: 16px; padding: 14px 16px; font-size: 15px; line-height: 22px; min-width: 0; }
 .row + .row { border-top: 1px solid var(--line); }
 .row dt { color: var(--mute); flex: none; }
-.row dd { text-align: right; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.row dd { text-align: right; font-weight: 700; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 
 /* loading */
-.ghostBlock { border-radius: var(--r-in); background: var(--inset); animation: pulse 1.4s ease-in-out infinite; }
+.ghostBlock { border-radius: var(--r-in); background: var(--wash); animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .5; } }
 @media (prefers-reduced-motion: reduce) { .ghostBlock { animation: none; } }
 
 @media (max-width: 720px) {
+  .page { padding: 20px 16px 48px; }
   .card { grid-template-columns: minmax(0, 1fr); }
   .picture { min-height: 220px; }
-  .body { padding: 22px 18px; }
+  .body { padding: 24px 20px; }
   .shopName { font-size: 26px; }
-  .name { font-size: 22px; }
-  .done { padding: 22px 18px; }
+  .name, .doneTitle { font-size: 28px; }
+  .done { padding: 24px 20px; }
 }

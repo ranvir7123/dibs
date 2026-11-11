@@ -44,9 +44,11 @@ export interface PayPalOrder {
   amountCents: number | null;
   currency: string | null;
   /** The hold, once the order has been authorised. */
-  authorization: { id: string; status: string; amountCents: number } | null;
+  authorization: { id: string; status: string; amountCents: number; /** The date the hold ends, from PayPal's own answer. */ endsAt: Date | null } | null;
   /** The payment, once the order has been captured. */
   capture: { id: string; status: string; amountCents: number } | null;
+  /** How much of the payment has been refunded to the payer, added up from PayPal's own list of refunds. */
+  refundedCents: number;
   /** True when the payer used a PayPal account (not a raw card number). */
   paidWithPayPalAccount: boolean;
 }
@@ -72,12 +74,26 @@ export interface WebhookHeaders {
   transmissionTime: string;
 }
 
+/**
+ * What an order is made from. With returnUrl and cancelUrl the payer leaves
+ * our page for PayPal's and is sent back. Without them the order is for
+ * PayPal's button, whose window opens over our page.
+ */
+export interface OrderInput {
+  requestId: string;
+  amountCents: number;
+  description: string;
+  customId: string;
+  returnUrl?: string;
+  cancelUrl?: string;
+}
+
 /** The PayPal actions Dibs uses. The real one calls PayPal; tests pass a pretend one. */
 export interface PayPal {
   /** An order that HOLDS money (nothing is taken yet). The payer approves it on PayPal's page. */
-  createHoldOrder(input: { requestId: string; amountCents: number; description: string; customId: string; returnUrl: string; cancelUrl: string }): Promise<PayPalOrder>;
+  createHoldOrder(input: OrderInput): Promise<PayPalOrder>;
   /** An order that TAKES money at once when approved: a shop sale. */
-  createSaleOrder(input: { requestId: string; amountCents: number; description: string; customId: string; returnUrl: string; cancelUrl: string }): Promise<PayPalOrder>;
+  createSaleOrder(input: OrderInput): Promise<PayPalOrder>;
   getOrder(orderId: string): Promise<PayPalOrder>;
   /** Turns an approved hold order into a real hold. */
   authorizeOrder(orderId: string, requestId: string): Promise<PayPalOrder>;
@@ -85,6 +101,10 @@ export interface PayPal {
   captureOrder(orderId: string, requestId: string): Promise<PayPalOrder>;
   /** Takes part of a hold. The rest stays held. */
   takeFromHold(input: { authorizationId: string; requestId: string; amountCents: number; invoiceId: string; note: string }): Promise<{ id: string; status: string }>;
+  /** Reads a hold again: its state and the date it ends. */
+  getHold(authorizationId: string): Promise<{ status: string; amountCents: number; endsAt: Date | null }>;
+  /** Gives a payment back to the payer: all of it, or amountCents of it. */
+  refundPayment(input: { captureId: string; requestId: string; amountCents?: number; note?: string }): Promise<{ id: string; status: string }>;
   /** Lets a hold go. Fine to call on a hold that was already let go. */
   voidHold(authorizationId: string): Promise<{ status: string }>;
   /** Sends money to an email address, with a note. PayPal finishes it some seconds later. */
@@ -201,6 +221,12 @@ async function call(method: "GET" | "POST" | "DELETE", path: string, options: { 
   return data;
 }
 
+function asDate(value: unknown): Date | null {
+  if (typeof value !== "string") return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function asOrder(data: Json): PayPalOrder {
   const unit = ((data.purchase_units as Json[] | undefined) ?? [])[0] ?? {};
   const amount = (unit.amount as Json | undefined) ?? {};
@@ -218,7 +244,8 @@ function asOrder(data: Json): PayPalOrder {
     customId: typeof unit.custom_id === "string" ? unit.custom_id : null,
     amountCents: textToCents(amount.value),
     currency: typeof amount.currency_code === "string" ? amount.currency_code : null,
-    authorization: auth ? { id: String(auth.id), status: String(auth.status), amountCents: moneyOf(auth) } : null,
+    authorization: auth ? { id: String(auth.id), status: String(auth.status), amountCents: moneyOf(auth), endsAt: asDate(auth.expiration_time) } : null,
+    refundedCents: ((payments.refunds as Json[] | undefined) ?? []).filter((r) => r.status === "COMPLETED" || r.status === "PENDING").reduce((total, r) => total + moneyOf(r), 0),
     capture: capture ? { id: String(capture.id), status: String(capture.status), amountCents: moneyOf(capture) } : null,
     paidWithPayPalAccount: typeof source.paypal === "object" && source.paypal !== null,
   };
@@ -239,7 +266,11 @@ function asPayout(data: Json): PayPalPayout {
   };
 }
 
-function orderBody(intent: "AUTHORIZE" | "CAPTURE", input: { amountCents: number; description: string; customId: string; returnUrl: string; cancelUrl: string }, currency: string): Json {
+function orderBody(intent: "AUTHORIZE" | "CAPTURE", input: OrderInput, currency: string): Json {
+  const unit = { description: input.description.slice(0, 127), custom_id: input.customId.slice(0, 127), amount: { currency_code: currency, value: centsToText(input.amountCents) } };
+  // For PayPal's button (its window opens over our page) the order carries no
+  // return address: the button tells our page when the payer has approved.
+  if (!input.returnUrl || !input.cancelUrl) return { intent, purchase_units: [unit] };
   return {
     intent,
     purchase_units: [
@@ -290,6 +321,21 @@ function realPayPal(currency: string): PayPal {
           // PayPal refuses a second take with the same invoice number, so each take has its own
           invoice_id: input.invoiceId,
           note_to_payer: input.note.slice(0, 255),
+        },
+      });
+      return { id: String(data.id), status: String(data.status) };
+    },
+    async getHold(authorizationId) {
+      const data = await call("GET", `/v2/payments/authorizations/${encodeURIComponent(authorizationId)}`);
+      return { status: String(data.status), amountCents: textToCents(((data.amount as Json | undefined) ?? {}).value) ?? 0, endsAt: asDate(data.expiration_time) };
+    },
+    async refundPayment(input) {
+      const data = await call("POST", `/v2/payments/captures/${encodeURIComponent(input.captureId)}/refund`, {
+        requestId: input.requestId,
+        // An empty body gives all of it back; an amount gives that part back.
+        body: {
+          ...(input.amountCents === undefined ? {} : { amount: { currency_code: currency, value: centsToText(input.amountCents) } }),
+          ...(input.note ? { note_to_payer: input.note.slice(0, 255) } : {}),
         },
       });
       return { id: String(data.id), status: String(data.status) };
@@ -381,6 +427,8 @@ export async function addWebhook(url: string): Promise<string> {
       event_types: [
         { name: "PAYMENT.CAPTURE.COMPLETED" },
         { name: "CHECKOUT.ORDER.APPROVED" },
+        { name: "PAYMENT.CAPTURE.REFUNDED" },
+        { name: "PAYMENT.CAPTURE.REVERSED" },
         { name: "PAYMENT.PAYOUTS-ITEM.SUCCEEDED" },
         { name: "PAYMENT.PAYOUTS-ITEM.FAILED" },
         { name: "PAYMENT.PAYOUTS-ITEM.RETURNED" },
@@ -399,6 +447,14 @@ export async function listWebhooks(): Promise<{ id: string; url: string }[]> {
 
 export async function removeWebhook(id: string): Promise<void> {
   await call("DELETE", `/v1/notifications/webhooks/${encodeURIComponent(id)}`);
+}
+
+/** PayPal's address and our keys as a sign-in header, for the one call that is made as the app itself (Log in with PayPal). Never printed. */
+export function appSignIn(): { base: string; header: string } {
+  const id = process.env.PAYPAL_CLIENT_ID?.trim();
+  const secret = process.env.PAYPAL_CLIENT_SECRET?.trim();
+  if (!id || !secret) throw new PayPalProblem("The PayPal test keys are missing.", 0, ["NO_KEYS"]);
+  return { base: apiBase(), header: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}` };
 }
 
 /** For the proof scripts only: one raw call, so a test can do something the product never does (such as paying with PayPal's published test card). */

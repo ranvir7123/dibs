@@ -1,0 +1,48 @@
+/*
+  The Ledger page. Colours, corners and fonts come from the site's own
+  variables (globals.css), so this screen follows the Dibs look. The dashboard
+  inside .studio is drawn by AG Studio and themed in src/ui/LedgerStudio.tsx.
+*/
+
+/* The four totals. They reuse the site's "numbox" card. */
+.totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.totals > * { min-width: 0; }
+.totals .stopped b { color: var(--stop-text, var(--stop)); }
+
+/* The line between the totals and the dashboard: what this part is, and the ask button. */
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 40px 0 20px; }
+.bar h2 { font: 800 22px/28px var(--sans); letter-spacing: -0.025em; }
+.bar p { color: var(--sec, var(--mute)); font-size: 15px; line-height: 22px; margin-top: 2px; max-width: 60ch; }
+.bar > div { min-width: 0; }
+.bar :global(.btn) { flex: none; }
+.bar :global(.btn) svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.trouble { margin-bottom: 16px; }
+
+/* AG Studio fills this box, so the box sets the height. */
+/* AG Studio keeps 8px of air around every card. The box is pulled out by the same 8px so the cards line up with the page. */
+.studio { height: 688px; min-width: 0; margin: -8px; }
+.studio.asking { height: 860px; }
+.studio > * { height: 100%; }
+
+/* While AG Studio loads: grey blocks in the shape of the two charts and the table. */
+.wait { margin: 8px; height: calc(100% - 16px) !important; display: grid; grid-template-columns: 14fr 10fr; grid-template-rows: 288px 1fr; gap: 16px; height: 100%; }
+.wait > span { display: block; width: auto; height: auto; border-radius: var(--r-card, 24px); background: var(--card); }
+.wait > span:last-child { grid-column: 1 / -1; }
+
+/* AG Studio's own pieces, nudged to match the site. */
+.studio :global(.ag-studio-root) { font-family: var(--sans); }
+.studio :global(.ag-studio-layout-widget-container) { box-sizing: border-box; padding: 14px 16px 12px; }
+.studio :global(.ag-studio-layout-widget-header) { margin: 2px 4px 10px; }
+
+@media (max-width: 1180px) {
+  .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  .totals { gap: 12px; }
+  .bar { flex-direction: column; align-items: stretch; margin: 28px 0 16px; }
+  .bar :global(.btn) { width: 100%; }
+  /* The widgets stack in one column on a phone, so the box is taller. */
+  .studio, .studio.asking { height: 1040px; }
+  .wait { grid-template-columns: 1fr; grid-template-rows: 288px 288px 1fr; }
+}

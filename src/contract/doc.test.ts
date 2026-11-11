@@ -32,7 +32,7 @@ describe("docs/CONTRACT.md matches src/contract", () => {
     for (const expected of ["Person", "Job", "JobCard", "Claim", "Result", "Check", "MoneyMove", "TrackedLink"]) {
       expect(names).toContain(expected);
     }
-    expect(all.find((s) => s.name === "Person")?.fields).toEqual(["id", "name", "paypalEmail", "createdAt"]);
+    expect(all.find((s) => s.name === "Person")?.fields).toEqual(["id", "name", "paypalEmail", "createdAt", "paypalAccountId", "paypalVerified"]);
   });
 
   it("names every shape", () => {

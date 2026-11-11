@@ -59,8 +59,9 @@ export default async function StatesPage({ searchParams }: { searchParams: Promi
       paypalAuthorizationId: null,
       createdAt: new Date("2026-11-10T12:00:00.000Z"),
       endedAt: null,
+      holdEndsAt: null,
     },
-    poster: { id: "per_example", name: longName, paypalEmail: "long@example.com", createdAt: new Date("2026-11-10T12:00:00.000Z") },
+    poster: { id: "per_example", name: longName, paypalEmail: "long@example.com", createdAt: new Date("2026-11-10T12:00:00.000Z"), paypalAccountId: null, paypalVerified: null },
     money: { lockedCents: 123456789, paidCents: 98765432, heldCents: 24691357, letGoCents: 0 },
     daysLeft: 9,
   };
@@ -124,7 +125,7 @@ export default async function StatesPage({ searchParams }: { searchParams: Promi
         </div>
         <span className="pill">
           <Icon name="clock" />
-          9D left
+          9 days left
         </span>
       </div>
       <article className="panel res">

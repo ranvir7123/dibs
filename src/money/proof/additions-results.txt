@@ -1,0 +1,45 @@
+﻿=== additions at 2026-11-11T21:23:59.915Z (PayPal test mode, pretend money) ===
+Step 4 (server side): the order for PayPal's button
+  PayPal order 26G752512X196180B: CREATED, amount $50.00, our label on it: true
+  OK   PayPal made a hold order with no return address (status CREATED)
+  Finishing it before anyone approved: "The hold has not been approved on PayPal yet."
+  OK   Nothing is locked before the poster approves
+Step 2: the date the hold ends
+  Held $50.00, PayPal reference 7RM31089930960316
+  PayPal's own answer (expiration_time): 2026-12-10T21:24:07Z
+  Stored on the job (holdEndsAt):        2026-12-10T21:24:07.000Z  = 29.0 days from now
+  OK   The stored date is the one PayPal gave
+  OK   The job opened on the order that was approved
+Step 3: sales, the refund wait, and refunds
+  Sale A (kept): PayPal order 2U8974601E230505Y, payment 7VE17950CF7741448, counted for aarav.clips
+  Sale B (refunded with the shop's Refund button): PayPal order 6J393553DE358342D, payment 8WU89946H4436833P, counted for aarav.clips
+  Sale C (refunded on PayPal's side, Dibs is not told): PayPal order 50034971WH583835R, payment 4E498090FL2791021, counted for aarav.clips
+  Sale D (part refunded): PayPal order 40S64419J7504653N, payment 21X12578W1315803F, counted for aarav.clips
+  OK   PayPal's number for the payment is stored on the sale
+  The refund wait is 2 minutes. Right now: {"counted":0,"waiting":4,"refunded":0,"keptCents":0}
+  payWorker during the wait: paid $0.00
+  OK   No commission is paid while the sales are still waiting
+  Sale B refunded through Dibs: stored refunded $32.00; PayPal says the payment is REFUNDED
+  OK   A full refund reads REFUNDED at PayPal and is stored in full
+  OK   Refunding it again is refused ("This sale has already been refunded in full.")
+  Sale D part refunded: stored refunded $10.00; PayPal says PARTIALLY_REFUNDED
+  OK   A part refund reads PARTIALLY_REFUNDED at PayPal and the amount is stored
+  Sale C refunded straight at PayPal. Dibs still has it stored as refunded $0.00.
+  (the sales' times were moved back past the wait, so this script does not have to sit and wait)
+  payWorker after the wait: paid $10.00; take 5MC38980B3378225A, payout 3RT64330NE991440H (done)
+  Sales now: {"counted":2,"waiting":0,"refunded":2,"keptCents":5400}
+  OK   The refund made at PayPal was found by reading the sale again
+  OK   Commission paid for 2 sales (A kept, D part kept), not 4: $10.00
+  OK   Counted 2, refunded 2, kept $32.00 + $22.00
+  OK   Asking again pays nothing more
+The shop owner's orders page would show:
+  2U8974601E230505Y  paid $32.00  kept $32.00  counted  (aarav.clips)
+  6J393553DE358342D  paid $32.00  kept $0.00  refunded  (aarav.clips)
+  40S64419J7504653N  paid $32.00  kept $22.00  part_refunded  (aarav.clips)
+  50034971WH583835R  paid $32.00  kept $0.00  refunded  (aarav.clips)
+Step 5 preview: the job's money trail
+  locked    $50.00  done     PayPal 7RM31089930960316  $50.00 locked in PayPal for this job
+  payment   $10.00  done     PayPal 3RT64330NE991440H (taken from the hold: 5MC38980B3378225A)  $10.00 paid to aarav.clips for a checked result
+  released  $40.00  done     PayPal 7RM31089930960316  $40.00 was not earned and went back to the poster
+  OK   Trail is locked $50.00, one payment of $10.00, released $40.00
+RESULT: PASSED (14 of 14 checks)

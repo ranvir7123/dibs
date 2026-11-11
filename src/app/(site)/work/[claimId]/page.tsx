@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getMyWork } from "@/contract";
-import { dayMonth, daysLeftLabel, daysUntil, longDay } from "@/ui/format";
+import { dayMonth, daysLeftLabel, daysUntil, longDay, sentence } from "@/ui/format";
 import { MAX_HAND_IN_BYTES } from "@/ui/handin";
 import { CopyLink, HandInFileForm, HandInLinkForm } from "@/ui/HandInForm";
 import { Icon } from "@/ui/Icon";
@@ -107,7 +107,7 @@ export default async function HandInPage({ params }: { params: Promise<{ claimId
           <h3 className="t" id="checked-title">
             What gets checked
           </h3>
-          <p className="sub">{job.card.finishLine}. Nobody approves you: if it passes, you are paid.</p>
+          <p className="sub">{sentence(job.card.finishLine)} Nobody approves you: if it passes, you are paid.</p>
           <ul className="steps">
             {job.card.howChecked.map((line) => (
               <li key={line}>

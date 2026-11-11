@@ -3,7 +3,7 @@
  * The drawing's chart is 400 wide and 132 tall: the plot runs from x 0 to 360
  * and y 12 (top) to 120 (zero), and the side labels sit to its right.
  */
-import { compact, dayMonth, hourOfDay } from "./format";
+import { compact, dayMonth, hourOfDay, timeOfDay } from "./format";
 
 export interface ChartPoint {
   at: Date;
@@ -69,7 +69,8 @@ export function chartModel(points: ChartPoint[], now: Date = new Date()): ChartM
 
   const ticks = [top, (top * 2) / 3, top / 3, 0].map(compact);
 
-  const label = span < 36 * 3_600_000 ? hourOfDay : dayMonth;
+  // Readings a few minutes apart (the usual case on a job's first day) need the minutes, or every label says the same hour.
+  const label = span < 3 * 3_600_000 ? timeOfDay : span < 36 * 3_600_000 ? hourOfDay : dayMonth;
   const lastIsFresh = now.getTime() - last < 3_600_000;
   const times = [0, 1 / 3, 2 / 3, 1].map((part) => {
     if (part === 1 && lastIsFresh) return "Now";

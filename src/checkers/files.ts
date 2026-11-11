@@ -2,17 +2,66 @@
  * Keeps files workers upload (recordings, translations) in a folder on this
  * machine, and finds them again for the checker.
  */
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { claims } from "@/db/schema";
 
-/** The folder uploads are kept in. Tests use a throwaway folder. */
+/**
+ * The folder uploads are kept in. Online it is set with DIBS_FILES_DIR to a
+ * folder on the site's own disk that survives a new build. On a laptop it is
+ * .data/hand-ins. Tests use a throwaway folder.
+ */
 function baseDir(): string {
   if (process.env.DIBS_DATA_DIR?.trim().startsWith("memory://")) return path.join(tmpdir(), "dibs-test-hand-ins");
+  const set = process.env.DIBS_FILES_DIR?.trim();
+  if (set) return path.resolve(/*turbopackIgnore: true*/ set);
   return path.resolve(/*turbopackIgnore: true*/ process.cwd(), ".data", "hand-ins");
+}
+
+/**
+ * Where a program that is NOT the site (the timer's tick, a background task)
+ * can fetch uploaded files from: the site's address inside the host's own
+ * network when DIBS_WEB_HOSTPORT is set, otherwise the site's public address.
+ */
+function filesAddress(): string | null {
+  const inside = process.env.DIBS_WEB_HOSTPORT?.trim();
+  if (inside) return `http://${inside}`;
+  return process.env.DIBS_BASE_URL?.trim().replace(/\/+$/, "") || null;
+}
+
+/** How long fetching one uploaded file from the site may take. */
+const FETCH_FILE_MS = 120_000;
+
+/**
+ * The full path of a handed-in file on THIS machine. The site keeps uploads on
+ * its own disk; the tick may run on another machine, so when the file is not
+ * here it is fetched from the site (the same address the result card plays it
+ * from) into a temporary folder. Returns the usual path when there is nowhere
+ * to fetch from, so the caller's "file not found" message still applies.
+ */
+export async function reachableHandIn(file: string, get: typeof fetch = fetch): Promise<string> {
+  const local = handInPath(file);
+  if (await stat(local).catch(() => null)) return local;
+  const site = filesAddress();
+  if (!site) return local;
+
+  const copy = path.join(tmpdir(), "dibs-fetched-hand-ins", ...file.split("/"));
+  if (await stat(copy).catch(() => null)) return copy;
+  const address = `${site}/hand-ins/${file.split("/").map(encodeURIComponent).join("/")}`;
+  let response: Response;
+  try {
+    response = await get(address, { signal: AbortSignal.timeout(FETCH_FILE_MS) });
+  } catch {
+    throw new Error("The handed-in file could not be fetched from the site just now. It will be tried again.");
+  }
+  if (response.status === 404) return local;
+  if (!response.ok) throw new Error(`The handed-in file could not be fetched from the site (error ${response.status}). It will be tried again.`);
+  await mkdir(path.dirname(copy), { recursive: true });
+  await writeFile(copy, new Uint8Array(await response.arrayBuffer()));
+  return copy;
 }
 
 const VIDEO_TYPES: Record<string, string> = {

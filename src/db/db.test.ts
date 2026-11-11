@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { count, eq } from "drizzle-orm";
 import type { JobCard } from "@/contract/types";
 import { closeDb, getDb, type Db } from "./client";
-import { getBoard, getJobMoney, getJobPage, getMyJobs, getMyWork, getPerson } from "./read";
+import { getBoard, getJobMoney, getJobPage, getMyJobs, getMyWork, getPeople, getPerson } from "./read";
 import * as schema from "./schema";
 import { assertSeedAllowed, seed } from "./seed";
 import { callDibs, createJob, handIn, joinDibs, objectToOpinion } from "./write";
@@ -217,6 +217,8 @@ describe("joining, posting, calling dibs and handing in", () => {
     expect(again.id).toBe(first.id);
     expect(first.paypalEmail).toBe("nisha@example.com");
     expect((await getPerson(first.id))?.name).toBe("nisha.draws");
+    // Someone who has posted and taken nothing is still in the list of everyone.
+    expect((await getPeople()).map((p) => p.id)).toContain(first.id);
     await expect(joinDibs({ name: "", paypalEmail: "x@example.com" })).rejects.toThrow("name");
     await expect(joinDibs({ name: "x", paypalEmail: "not an email" })).rejects.toThrow("email");
   });

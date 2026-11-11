@@ -11,6 +11,7 @@ import {
   initial,
   paidShare,
   plural,
+  sentence,
   tone,
 } from "./format";
 
@@ -54,7 +55,8 @@ describe("format", () => {
   });
 
   it("says how long a job has left", () => {
-    expect(daysLeftLabel(9)).toBe("9D left");
+    expect(daysLeftLabel(9)).toBe("9 days left");
+    expect(daysLeftLabel(1)).toBe("1 day left");
     expect(daysLeftLabel(0)).toBe("Ends today");
   });
 
@@ -95,5 +97,12 @@ describe("format", () => {
     expect(plural(1, "rule")).toBe("1 rule");
     expect(plural(4, "rule")).toBe("4 rules");
     expect(plural(1200, "view")).toBe("1,200 views");
+  });
+
+  it("ends a line with exactly one full stop", () => {
+    expect(sentence("Up to 10 sales are paid.")).toBe("Up to 10 sales are paid.");
+    expect(sentence("10,000 views on your launch video ")).toBe("10,000 views on your launch video.");
+    expect(sentence("Is this bug real?")).toBe("Is this bug real?");
+    expect(sentence("  ")).toBe("");
   });
 });

@@ -39,8 +39,10 @@ export const people = pgTable(
     name: text("name").notNull(),
     paypalEmail: text("paypal_email").notNull(),
     createdAt: time("created_at").notNull().defaultNow(),
+    paypalAccountId: text("paypal_account_id"),
+    paypalVerified: boolean("paypal_verified"),
   },
-  (t) => [uniqueIndex("people_paypal_email_unique").on(t.paypalEmail)],
+  (t) => [uniqueIndex("people_paypal_email_unique").on(t.paypalEmail), uniqueIndex("people_paypal_account_unique").on(t.paypalAccountId)],
 );
 
 export const jobs = pgTable(
@@ -61,6 +63,7 @@ export const jobs = pgTable(
     paypalAuthorizationId: text("paypal_authorization_id"),
     createdAt: time("created_at").notNull().defaultNow(),
     endedAt: time("ended_at"),
+    holdEndsAt: time("hold_ends_at"),
   },
   (t) => [
     index("jobs_status_idx").on(t.status),
@@ -238,9 +241,13 @@ export const sales = pgTable(
     paypalOrderId: text("paypal_order_id").notNull(),
     amountCents: integer("amount_cents").notNull(),
     at: time("at").notNull().defaultNow(),
+    paypalCaptureId: text("paypal_capture_id"),
+    refundedCents: integer("refunded_cents").notNull().default(0),
+    refundedAt: time("refunded_at"),
   },
   (t) => [
     uniqueIndex("sales_paypal_order_unique").on(t.paypalOrderId),
+    check("sales_refunded_not_negative", sql`${t.refundedCents} >= 0`),
     index("sales_claim_idx").on(t.claimId),
     check("sales_amount_not_negative", sql`${t.amountCents} >= 0`),
   ],

@@ -21,10 +21,12 @@ export default async function PeoplePage() {
           <h1>People working for you</h1>
           <p>Every job you posted. Open one to see each person&apos;s result, the checks, and what was paid.</p>
         </div>
-        <Link href="/post" className="btn main-b">
-          <Icon name="plus" />
-          Post a job
-        </Link>
+        {viewer ? (
+          <Link href="/ledger" className="btn ghost">
+            <Icon name="file" />
+            See the ledger
+          </Link>
+        ) : null}
       </div>
 
       {!viewer ? (

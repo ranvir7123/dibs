@@ -15,7 +15,7 @@ export function CallDibs({ jobId }: { jobId: string }) {
         {pending ? "Calling dibs…" : "Call dibs"}
       </button>
       {state.error ? (
-        <p role="alert" style={{ fontSize: 13, color: "var(--stop)" }}>
+        <p role="alert" style={{ fontSize: 14, lineHeight: "20px", color: "var(--stop-text)" }}>
           {state.error}
         </p>
       ) : null}
