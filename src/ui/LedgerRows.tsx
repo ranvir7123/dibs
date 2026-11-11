@@ -4,7 +4,7 @@ import { dayMonth, timeOfDay } from "./format";
 import { Icon, type IconName } from "./Icon";
 
 const WORD: Record<LedgerRow["kind"], string> = { locked: "Locked", paid: "Paid", released: "Released back", blocked: "Blocked", refunded: "Refunded" };
-const ICON: Record<LedgerRow["kind"], IconName> = { locked: "wallet", paid: "ok", released: "clock", blocked: "warn", refunded: "clock" };
+const ICON: Record<LedgerRow["kind"], IconName> = { locked: "lock", paid: "ok", released: "back", blocked: "shield", refunded: "back" };
 
 /**
  * The ledger as plain rows, with no charts. Shown when the dashboard cannot

@@ -129,7 +129,7 @@ export function ledgerAdapter(onTrouble?: (message: string | null) => void): AgL
             } else if (line.t === "done") {
               model = line.model;
               incomplete = line.finish === "MAX_TOKENS";
-              if (line.usage) usage = { inputTokens: line.usage.input ?? 0, outputTokens: line.usage.output ?? 0, totalTokens: (line.usage.input ?? 0) + (line.usage.output ?? 0) } as AgLlmResponse["usage"];
+              if (line.usage) usage = { inputTokens: line.usage.input ?? 0, outputTokens: line.usage.output ?? 0, totalTokens: (line.usage.input ?? 0) + (line.usage.output ?? 0) };
             } else if (line.t === "error") {
               endMessage();
               return { ...failed(line.code, line.message), output };

@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { useAi } from "@/ai";
+import { AiKeyMissing, AiTrouble, useAi } from "@/ai";
 import { closeDb, getDb } from "@/db/client";
 import { seed } from "@/db/seed";
 import { createJob } from "@/db/write";
@@ -138,6 +138,30 @@ describe("writeJobCard", () => {
     useAi({ text: async () => EXAMPLE_TRANSLATION as never, watch: async () => ({}) as never });
     const opinionCard = await writeJobCard({ sentence: "Translate our menu into Hindi. $18.", posterName: "Kettle & Clove" });
     expect((await createJob({ posterId: "per_kettle", sentence: "Translate our menu into Hindi. $18.", card: opinionCard })).status).toBe("draft");
+  });
+
+  it("tells the poster in plain words when the AI is out of allowance, busy or missing, in a form the screen shows", async () => {
+    // (Named swapAi here because the style checker takes any "use..." call inside a helper for a React hook.)
+    const swapAi = useAi;
+    const failing = (error: Error) => swapAi({ text: async () => Promise.reject(error), watch: async () => ({}) as never });
+
+    failing(new AiTrouble("The AI has used up its allowance for now (3 models tried). Please try again later."));
+    const limit = await writeJobCard({ sentence: "Get my video views. Up to $50.", posterName: "Kettle & Clove" }).then(
+      () => null,
+      (error: Error) => error,
+    );
+    expect(limit?.message).toBe("The AI has used up its allowance for now (3 models tried). Please try again later. Nothing was saved and no money was locked.");
+    expect(limit?.constructor).toBe(Error); // the screens only show errors of the plain kind as they are
+    expect(limit!.message.length).toBeLessThanOrEqual(240);
+
+    failing(new AiKeyMissing("text", ["ANTHROPIC_API_KEY", "GOOGLE_AI_API_KEY"]));
+    const missing = await writeJobCard({ sentence: "Get my video views. Up to $50.", posterName: "Kettle & Clove" }).then(
+      () => null,
+      (error: Error) => error,
+    );
+    expect(missing?.message).toBe("The AI that writes job cards is not available right now. Nothing was saved and no money was locked. Please try again later.");
+    expect(missing?.message).not.toMatch(/KEY|env/);
+    expect(missing?.constructor).toBe(Error);
   });
 
   it("refuses an empty sentence without asking AI", async () => {

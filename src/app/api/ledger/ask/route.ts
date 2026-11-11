@@ -40,7 +40,7 @@ const HOUSE_RULES = [
   "House rules for this dashboard:",
   "- The reader runs a small business and is not technical. Answer in short, plain, everyday sentences.",
   "- All money is in US dollars. Always write it with a dollar sign and two decimals, for example $8.30.",
-  "- Never show field ids, table ids, widget ids or row ids in your final answer. Use the names people see, such as Paid or Released back.",
+  "- Never show field ids, table ids, widget ids or row ids in your final answer. Use the names people see, such as Paid, Released back or Happened.",
   "- Only use numbers that come from the data. If the data cannot answer the question, say so in one sentence.",
 ].join("\n");
 

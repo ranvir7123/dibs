@@ -71,6 +71,9 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Optional: a separate AI key for the ledger's "ask" box. Empty = it uses GOOGLE_AI_API_KEY.
+      - key: LEDGER_AI_API_KEY
+        sync: false
       # For handing the slow checks to Render's background tasks later
       # (render-with-background-tasks.yaml). Left empty, the timer does every check itself.
       - key: DIBS_CHECKS_ON_RENDER

@@ -41,7 +41,7 @@ https://dashboard.render.com/blueprint/new
 8. Tap "Connect" beside `dibs`.
 9. In "Blueprint Name" type `dibs`.
 10. Leave the branch as `main`.
-11. Render now lists boxes to fill in. Fill them exactly as in steps 12 to 24.
+11. Render now lists boxes to fill in. Fill them exactly as in steps 12 to 25.
 12. `DIBS_BASE_URL`: leave empty.
 13. `PAYPAL_CLIENT_ID`: paste "Client ID" from the PayPal tab of step 5.
 14. `PAYPAL_CLIENT_SECRET`: paste "Secret key 1" from the same tab.
@@ -53,11 +53,12 @@ https://dashboard.render.com/blueprint/new
 20. `GOOGLE_AI_API_KEY`: paste the key from the Google tab of step 7.
 21. `YOUTUBE_API_KEY`: leave empty.
 22. `ANTHROPIC_API_KEY`: leave empty.
-23. `DIBS_CHECKS_ON_RENDER`: leave empty.
-24. `RENDER_API_KEY`: leave empty.
-25. Tap "Deploy Blueprint".
-26. Add your payment card if Render asks.
-27. Wait until `dibs-db`, `dibs` and `dibs-tick` all show a green tick. The first build takes several minutes.
+23. `LEDGER_AI_API_KEY`: leave empty.
+24. `DIBS_CHECKS_ON_RENDER`: leave empty.
+25. `RENDER_API_KEY`: leave empty.
+26. Tap "Deploy Blueprint".
+27. Add your payment card if Render asks.
+28. Wait until `dibs-db`, `dibs` and `dibs-tick` all show a green tick. The first build takes several minutes.
 
 The tables are created and the six sample jobs are loaded by themselves during this first build. You run no command. Every later build updates the tables by itself too, before the new version starts; nothing already in the database is wiped.
 
@@ -65,30 +66,30 @@ The tables are created and the six sample jobs are loaded by themselves during t
 
 https://dashboard.render.com
 
-28. Tap the service named `dibs`.
-29. Copy the address under its name at the top. It starts with `https://dibs` and ends with `.onrender.com`. This is your site address.
-30. Tap "Environment" in the menu.
-31. Tap "Edit".
-32. In the box beside `DIBS_BASE_URL`, paste your site address. Remove any `/` at the very end.
-33. Tap "Save, rebuild, and deploy".
-34. Wait for the green tick.
+29. Tap the service named `dibs`.
+30. Copy the address under its name at the top. It starts with `https://dibs` and ends with `.onrender.com`. This is your site address.
+31. Tap "Environment" in the menu.
+32. Tap "Edit".
+33. In the box beside `DIBS_BASE_URL`, paste your site address. Remove any `/` at the very end.
+34. Tap "Save, rebuild, and deploy".
+35. Wait for the green tick.
 
 ## Part 5. Tell PayPal where to send its messages
 
 https://developer.paypal.com/dashboard/applications/sandbox
 
-35. Tap your app.
-36. Scroll to "Sandbox Webhooks" and tap "Add Webhook".
-37. In "Webhook URL", paste your site address and type `/api/paypal/webhook` straight after it.
-38. Tick these nine boxes: "Checkout order approved", "Payment capture completed", "Payment capture refunded", "Payment capture reversed", "Payment payouts-item succeeded", "Payment payouts-item failed", "Payment payouts-item returned", "Payment payouts-item blocked", "Payment payouts-item unclaimed".
-39. Tap "Save".
-40. Copy the "Webhook ID" shown beside the new line.
+36. Tap your app.
+37. Scroll to "Sandbox Webhooks" and tap "Add Webhook".
+38. In "Webhook URL", paste your site address and type `/api/paypal/webhook` straight after it.
+39. Tick these nine boxes: "Checkout order approved", "Payment capture completed", "Payment capture refunded", "Payment capture reversed", "Payment payouts-item succeeded", "Payment payouts-item failed", "Payment payouts-item returned", "Payment payouts-item blocked", "Payment payouts-item unclaimed".
+40. Tap "Save".
+41. Copy the "Webhook ID" shown beside the new line.
 
 https://dashboard.render.com
 
-41. Tap `dibs`, then "Environment", then "Edit".
-42. In the box beside `PAYPAL_WEBHOOK_ID`, paste the Webhook ID from step 40.
-43. Tap "Save, rebuild, and deploy".
+42. Tap `dibs`, then "Environment", then "Edit".
+43. In the box beside `PAYPAL_WEBHOOK_ID`, paste the Webhook ID from step 41.
+44. Tap "Save, rebuild, and deploy".
 
 ## Part 6. Switch on "Log in with PayPal"
 
@@ -96,69 +97,69 @@ Do this part only after the money session says the login is ready.
 
 https://developer.paypal.com/dashboard/applications/sandbox
 
-44. Tap your app.
-45. Tick "Log in with PayPal" and tap "Advanced Settings" beside it.
-46. In "Return URL", paste your site address and type `/api/paypal/login/return` straight after it.
-47. Tap "Save".
+45. Tap your app.
+46. Tick "Log in with PayPal" and tap "Advanced Settings" beside it.
+47. In "Return URL", paste your site address and type `/api/paypal/login/return` straight after it.
+48. Tap "Save".
 
 https://dashboard.render.com
 
-48. Tap `dibs`, then "Environment", then "Edit".
-49. In the box beside `PAYPAL_LOGIN_ON`, type `1`.
-50. Tap "Save, rebuild, and deploy".
+49. Tap `dibs`, then "Environment", then "Edit".
+50. In the box beside `PAYPAL_LOGIN_ON`, type `1`.
+51. Tap "Save, rebuild, and deploy".
 
 ## Part 7. Check it as a stranger
 
-51. Open a private browser tab.
-52. Open your site address with `/api/health` typed straight after it. It must say `"ok":true` and `hosted Postgres`.
-53. Open your site address. The board must show 6 jobs.
-54. Tap any job. Its page must open.
+52. Open a private browser tab.
+53. Open your site address with `/api/health` typed straight after it. It must say `"ok":true` and `hosted Postgres`.
+54. Open your site address. The board must show 6 jobs.
+55. Tap any job. Its page must open.
 
 https://dashboard.render.com
 
-55. Tap `dibs-tick`, then "Logs".
-56. Within two minutes a new line must appear that starts with `Tick at` and ends with `0 problems`.
+56. Tap `dibs-tick`, then "Logs".
+57. Within two minutes a new line must appear that starts with `Tick at` and ends with `0 problems`.
 
 ## Part 8. Hand the slow checks to Render's background tasks
 
 This part is extra, and comes only after Part 7 has worked. The site works without it: the timer then does every check itself. With it, each check where AI watches a video runs as its own background task (Render calls these "Workflows"), so one long video never holds up the rest.
 
-57. Tell the main session: "ready for background tasks".
-58. Wait until it answers "pushed". It has then added a fourth service, `dibs-checks`, to `render.yaml`.
+58. Tell the main session: "ready for background tasks".
+59. Wait until it answers "pushed". It has then added a fourth service, `dibs-checks`, to `render.yaml`.
 
 https://dashboard.render.com/blueprints
 
-59. Tap the Blueprint named `dibs`, then tap "Manual Sync".
-60. Wait until `dibs-checks` shows a green tick. If it shows "Deploy failed", stop here and send its last 20 log lines to the main session; the site keeps working as it is.
+60. Tap the Blueprint named `dibs`, then tap "Manual Sync".
+61. Wait until `dibs-checks` shows a green tick. If it shows "Deploy failed", stop here and send its last 20 log lines to the main session; the site keeps working as it is.
 
 https://dashboard.render.com/u/settings#api-keys
 
-61. Tap "Create API Key".
-62. In "Name" type `dibs-checks`.
-63. Tap "Create API Key" and copy the key it shows. It is shown once only.
+62. Tap "Create API Key".
+63. In "Name" type `dibs-checks`.
+64. Tap "Create API Key" and copy the key it shows. It is shown once only.
 
 https://dashboard.render.com
 
-64. Tap `dibs`, then "Environment", then "Edit".
-65. In the box beside `RENDER_API_KEY`, paste the key from step 63.
-66. In the box beside `DIBS_CHECKS_ON_RENDER`, type `1`.
-67. Tap "Save, rebuild, and deploy".
-68. Tap `dibs-tick`, then "Manual Deploy", then "Deploy latest commit", so the timer reads the two new values.
-69. On the site, hand in a public video on a job that says "AI watches your video".
-70. Tap `dibs-tick`, then "Logs". Within two minutes a line must appear that starts `Handed the slow check for result`.
-71. Tap `dibs-checks`, then "Runs" (the list of task runs). A run of `runCheck` must appear and end as "Completed".
-72. Open the job's page on the site. The result card must show the checks AI made.
+65. Tap `dibs`, then "Environment", then "Edit".
+66. In the box beside `RENDER_API_KEY`, paste the key from step 64.
+67. In the box beside `DIBS_CHECKS_ON_RENDER`, type `1`.
+68. Tap "Save, rebuild, and deploy".
+69. Tap `dibs-tick`, then "Manual Deploy", then "Deploy latest commit", so the timer reads the two new values.
+70. On the site, hand in a public video on a job that says "AI watches your video".
+71. Tap `dibs-tick`, then "Logs". Within two minutes a line must appear that starts `Handed the slow check for result`.
+72. Tap `dibs-checks`, then "Runs" (the list of task runs). A run of `runCheck` must appear and end as "Completed".
+73. Open the job's page on the site. The result card must show the checks AI made.
 
 What you see if it does not work:
 
 | You see in the `dibs-tick` log | It means | Do this |
 |---|---|---|
-| No `Handed the slow check` line, and the check appears on the site anyway | The switch is off or a value is missing, so the timer did the check itself. | Check steps 65 to 68. |
-| `Could not hand the check ... (Render refused the key in RENDER_API_KEY), so it was done here instead.` | The key is wrong. The check was still done. | Do steps 61 to 68 again. |
+| No `Handed the slow check` line, and the check appears on the site anyway | The switch is off or a value is missing, so the timer did the check itself. | Check steps 66 to 69. |
+| `Could not hand the check ... (Render refused the key in RENDER_API_KEY), so it was done here instead.` | The key is wrong. The check was still done. | Do steps 62 to 69 again. |
 | `Could not hand the check ... (Render has no task called ...), so it was done here instead.` | The task service is not running, or its name did not reach the timer. The check was still done. | Tap `dibs-checks` and see whether its last build failed. Send its last 20 log lines to the main session. |
 | `Handed the slow check` appears, but the run on `dibs-checks` ends as "Failed" | The task could not do the check. It is tried once more by itself, and the timer tries again 10 minutes later. | Tap the failed run, copy the error line, send it to the main session. |
 
-To switch this part off again: empty the box beside `DIBS_CHECKS_ON_RENDER`, save, and do step 68.
+To switch this part off again: empty the box beside `DIBS_CHECKS_ON_RENDER`, save, and do step 69.
 
 ## If something goes wrong
 
@@ -168,7 +169,7 @@ To switch this part off again: empty the box beside `DIBS_CHECKS_ON_RENDER`, sav
 | The board is empty | The sample jobs were not loaded. | Tap `dibs`, then "Logs", and look for the line starting `The database was empty`. If it is missing, tell the main session. |
 | A `Tick at` line ends with `1 problems` or more | A check or a payment failed; the lines under it say which, in plain words. | Nothing at once: it is tried again by itself. If the same line repeats for an hour, send it to the main session. |
 | No `Tick at` line, and `The tick could not run:` instead | The timer cannot reach the database or is missing a key. | Send that one line to the main session. |
-| PayPal's page shows an error after "Lock the money" | `DIBS_BASE_URL` is wrong. | Do steps 28 to 34 again and check the address has no `/` at the end. |
+| PayPal's page shows an error after "Lock the money" | `DIBS_BASE_URL` is wrong. | Do steps 29 to 35 again and check the address has no `/` at the end. |
 
 ## Only for filming, from the laptop
 
@@ -176,19 +177,19 @@ The filming reset and the 5,000-click attack read the database from the laptop, 
 
 https://dashboard.render.com
 
-73. Tap `dibs-db`.
-74. Under "Connections", copy "External Database URL".
-75. On the laptop, open `C:\dev\paypal\dibs\.env.local` in Notepad.
-76. On the line that starts `DATABASE_URL=`, paste the address after the `=`, then type `?sslmode=require` straight after it.
-77. On the line that starts `DIBS_BASE_URL=`, replace what is after the `=` with your site address.
-78. Save and close the file.
-79. In PowerShell, inside `C:\dev\paypal\dibs`, reset for filming (this wipes the online database, so it asks you to mean it):
+74. Tap `dibs-db`.
+75. Under "Connections", copy "External Database URL".
+76. On the laptop, open `C:\dev\paypal\dibs\.env.local` in Notepad.
+77. On the line that starts `DATABASE_URL=`, paste the address after the `=`, then type `?sslmode=require` straight after it.
+78. On the line that starts `DIBS_BASE_URL=`, replace what is after the `=` with your site address.
+79. Save and close the file.
+80. In PowerShell, inside `C:\dev\paypal\dibs`, reset for filming (this wipes the online database, so it asks you to mean it):
 
 ```powershell
 $env:DIBS_ALLOW_SEED="1"; npx tsx scripts/demo-reset.ts; Remove-Item Env:DIBS_ALLOW_SEED
 ```
 
-80. When filming is over, empty the `DATABASE_URL=` line again, so the laptop goes back to its own database.
+81. When filming is over, empty the `DATABASE_URL=` line again, so the laptop goes back to its own database.
 
 ## What changed from the Vercel plan
 
@@ -200,16 +201,16 @@ $env:DIBS_ALLOW_SEED="1"; npx tsx scripts/demo-reset.ts; Remove-Item Env:DIBS_AL
 ## Not checked by anyone yet
 
 - No step in this file has been carried out. Button names come from Render's and PayPal's help pages; a name on your screen may differ slightly.
-- Whether Render lets you leave a box empty in step 11, and whether it asks for all thirteen boxes on one screen.
+- Whether Render lets you leave a box empty in step 11, and whether it asks for all fourteen boxes on one screen.
 - The first build on Render: installing, building, creating the tables and loading the sample jobs on a hosted database. Each piece ran on the laptop's built-in database only.
 - Two ticks at the same moment on the hosted database. The lock that stops them was tested on the laptop's built-in database, and the "someone else has it" answer only with a stand-in.
-- Whether the timer picks up a key by itself after you change it on `dibs` (steps 33 and 43). If the timer's log complains about a missing key afterwards, tap `dibs-tick`, "Manual Deploy", "Deploy latest commit".
+- Whether the timer picks up a key by itself after you change it on `dibs` (steps 34 and 44). If the timer's log complains about a missing key afterwards, tap `dibs-tick`, "Manual Deploy", "Deploy latest commit".
 - The timer fetching an uploaded recording from the site over Render's own network.
-- The laptop reaching the online database with `?sslmode=require` (step 76).
-- Whether Render accepts the fourth service when the Blueprint is synced in steps 59 and 60, and the name of the "Manual Sync" button.
-- All of Part 8. Starting a background task on Render has never worked from here, because no Render account exists yet. What was tried: Render's real service refused a made-up key, and the timer then did the check itself and said so. Whether the task service builds and starts, whether its name reaches the timer, whether a task run can reach the database and fetch an uploaded recording, and the names of the buttons in steps 61 to 63 and 71 are all unchecked.
+- The laptop reaching the online database with `?sslmode=require` (step 77).
+- Whether Render accepts the fourth service when the Blueprint is synced in steps 60 and 61, and the name of the "Manual Sync" button.
+- All of Part 8. Starting a background task on Render has never worked from here, because no Render account exists yet. What was tried: Render's real service refused a made-up key, and the timer then did the check itself and said so. Whether the task service builds and starts, whether its name reaches the timer, whether a task run can reach the database and fetch an uploaded recording, and the names of the buttons in steps 62 to 64 and 72 are all unchecked.
 - The exact size of Render's bill. The site is $7 a month and the timer at least $1; the database price is shown by Render before you confirm.
-- The nine PayPal box names in step 38 are PayPal's event names put into words; the list on PayPal's page uses the same words in a slightly different order.
+- The nine PayPal box names in step 39 are PayPal's event names put into words; the list on PayPal's page uses the same words in a slightly different order.
 
 ## Help pages these steps come from (read 12 Nov 2026)
 

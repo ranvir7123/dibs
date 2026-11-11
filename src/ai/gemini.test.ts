@@ -68,6 +68,33 @@ describe("asking Google's AI", () => {
     expect(generateContent).toHaveBeenCalledTimes(MODELS.geminiText.length);
   });
 
+  it("says the AI has used up its allowance when every model answers 429", async () => {
+    const daily = () => new ApiError({ status: 429, message: "generate_content_free_tier_requests limit 20 GenerateRequestsPerDayPerProjectPerModel-FreeTier" });
+    generateContent.mockImplementation(failWith(daily));
+    expect((await failure(geminiText({ system: "s", prompt: "p", schema })))?.message).toBe(`The AI has used up its allowance for now (${MODELS.geminiText.length} models tried). Please try again later.`);
+    expect(generateContent).toHaveBeenCalledTimes(MODELS.geminiText.length); // each model was given its chance
+    generateContent.mockClear();
+    expect((await failure(geminiWatch({ video, prompt: "p", schema })))?.message).toBe(
+      `The AI has used up its allowance for now and could not watch this video (${MODELS.geminiWatch.length} models tried). It will be tried again.`,
+    );
+  });
+
+  it("treats a 504 as busy, tries the next model, and never passes the raw error on", async () => {
+    generateContent.mockImplementation(failWith(() => new ApiError({ status: 504, message: "Deadline expired before operation could complete." })));
+    const error = await failure(geminiWatch({ video, prompt: "p", schema }));
+    expect(error?.name).toBe("AiTrouble");
+    expect(error?.message).toBe(`The AI was too busy or too slow to watch this video (${MODELS.geminiWatch.length} models tried). It will be tried again.`);
+    expect(generateContent).toHaveBeenCalledTimes(MODELS.geminiWatch.length);
+  });
+
+  it("uses the model that still answers when the others are out of allowance or timing out", async () => {
+    generateContent
+      .mockImplementationOnce(failWith(() => new ApiError({ status: 504, message: "timeout" })))
+      .mockImplementationOnce(failWith(() => new ApiError({ status: 429, message: "limit 20" })))
+      .mockResolvedValueOnce({ text: '{"greeting":"Hello"}' });
+    expect(await geminiText({ system: "s", prompt: "p", schema })).toEqual({ greeting: "Hello" });
+  });
+
   it("says so in plain words when watching runs out of time", async () => {
     generateContent.mockImplementation(failWith(() => Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" })));
     expect((await failure(geminiWatch({ video, prompt: "p", schema })))?.message).toContain("too busy or too slow to watch this video");

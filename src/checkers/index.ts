@@ -3,6 +3,7 @@
  * src/checkers and src/ai.
  * The names, inputs and outputs below are agreed in docs/CONTRACT.md.
  */
+import { isAiTrouble } from "@/ai/trouble";
 import type { CheckReport, JobCard, TickSummary } from "@/contract/types";
 import { keepHandInFile } from "./files";
 import { writeJobCardWithAi } from "./job-card";
@@ -20,7 +21,15 @@ export async function writeJobCard(input: {
   /** The poster's name, so the card can say "It must name Kettle & Clove". */
   posterName: string;
 }): Promise<JobCard> {
-  return writeJobCardWithAi(input);
+  try {
+    return await writeJobCardWithAi(input);
+  } catch (error) {
+    // The screens show only plain errors as they are. An AI failure is turned into one
+    // here, so the poster reads what happened instead of "Something went wrong".
+    if (!isAiTrouble(error)) throw error;
+    const aboutKeys = error.name === "AiKeyMissing" || /\bkey\b/i.test(error.message);
+    throw new Error(aboutKeys ? "The AI that writes job cards is not available right now. Nothing was saved and no money was locked. Please try again later." : `${error.message} Nothing was saved and no money was locked.`);
+  }
 }
 
 /**

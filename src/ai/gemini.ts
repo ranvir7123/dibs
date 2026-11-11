@@ -16,6 +16,7 @@ import { ApiError, FileState, GoogleGenAI, createPartFromUri, type Part } from "
 import { z } from "zod";
 import type { TextRequest, WatchRequest } from "./index";
 import { LIMITS, MODELS } from "./models";
+import { AiTrouble } from "./trouble";
 
 /** How often to look whether an uploaded recording is ready. */
 const UPLOAD_POLL_MS = 3_000;
@@ -24,13 +25,7 @@ function client(): GoogleGenAI {
   return new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_API_KEY!.trim() });
 }
 
-/** An AI failure in plain words, safe to show on screen. */
-export class AiTrouble extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "AiTrouble";
-  }
-}
+export { AiTrouble };
 
 function readAnswer<T>(text: string | undefined, schema: z.ZodType<T>): T {
   if (!text) throw new AiTrouble("The AI gave no answer. Please try again.");
@@ -58,6 +53,15 @@ function plain(error: unknown, job: "text" | "watch", tried: number): AiTrouble 
   const status = statusOf(error);
   if (status === 401 || status === 403) return new AiTrouble("The AI key (GOOGLE_AI_API_KEY) was refused. Check it in .env.local.");
   if (status === 400 && job === "watch") return new AiTrouble("The AI could not open this video. It must be a public video, or a normal video file.");
+  if (status === 429) {
+    // Every model that was tried said "no more requests for now" (the key's daily or per-minute allowance).
+    const tried_ = `${tried} model${tried === 1 ? "" : "s"} tried`;
+    return new AiTrouble(
+      job === "watch"
+        ? `The AI has used up its allowance for now and could not watch this video (${tried_}). It will be tried again.`
+        : `The AI has used up its allowance for now (${tried_}). Please try again later.`,
+    );
+  }
   if (busy(error)) {
     return new AiTrouble(
       job === "watch"

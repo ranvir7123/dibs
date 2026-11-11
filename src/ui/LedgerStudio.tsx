@@ -20,7 +20,7 @@ const STATUS: Record<LedgerRow["status"], string> = { done: "Done", pending: "On
 export const ASK_STARTERS: AgAiPromptStarter[] = [
   { label: "Who was paid the most?", prompt: "Which worker was paid the most, and for which job? Answer in one or two sentences using the Paid column." },
   { label: "Paid against released, per job", prompt: "Add a chart that compares Paid with Released back for each job." },
-  { label: "What did cheating cost me?", prompt: "How much money did the cheat checks stop from being paid, and for which worker and job? Use the rows where What happened is Blocked." },
+  { label: "What did cheating cost me?", prompt: "How much money did the cheat checks stop from being paid, and for which worker and job? Use the rows where Happened is Blocked." },
 ];
 
 /**
@@ -66,8 +66,8 @@ const FIELDS = [
   { id: "when", name: "When", description: "The date and time of this money move (India time).", format: "dateTimeFormat" as const, formatOptions: { format: whenFormat } },
   text("job", "Job", "The job this money belongs to."),
   text("worker", "Worker", "The worker this line is about. Empty for Locked and Released lines."),
-  text("happened", "What happened", "One of: Locked (the job's budget was held in PayPal), Paid (money taken from the hold for a result that passed its checks), Released (the rest of the hold went back to the business), Blocked (a result failed a cheat check), Refunded (a shop sale went back to its buyer)."),
-  text("measured", "What was measured", "What the checker measured for this line, in words, for example '830 views' or '4 of 5 rules'."),
+  text("happened", "Happened", "One of: Locked (the job's budget was held in PayPal), Paid (money taken from the hold for a result that passed its checks), Released (the rest of the hold went back to the business), Blocked (a result failed a cheat check), Refunded (a shop sale went back to its buyer)."),
+  text("measured", "Measured", "What the checker measured for this line, in words, for example '830 views' or '4 of 5 rules'."),
   money("amount", "Amount", "The size of this line in US dollars. Do not add this column up across different kinds of line: use Paid, Released back, Still locked or Stopped instead."),
   money("paid", "Paid", "Dollars paid to a worker on this line. 0 on lines that are not payments."),
   money("released", "Released back", "Dollars released back to the business on this line. 0 on other lines."),

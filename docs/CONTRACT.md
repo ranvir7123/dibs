@@ -286,6 +286,7 @@ Listed in `.env.example` with no values. Put real values in `.env.local`, which 
 | `GOOGLE_AI_API_KEY` | B | AI that watches video |
 | `YOUTUBE_API_KEY` | B | Reading view counts |
 | `ANTHROPIC_API_KEY` | B | AI that writes and judges text |
+| `LEDGER_AI_API_KEY` | Ledger | Optional: a separate Google AI key for the Ledger's ask box. Empty = `GOOGLE_AI_API_KEY` is used. |
 | `TICK_SECRET` | B, D | Password the outside timer sends with each call |
 | `DIBS_FILES_DIR` | B | Online only: folder where handed-in files are kept. Empty = a folder inside the project. |
 | `DIBS_WEB_HOSTPORT` | B | Online only: the site's inside address on Render, so the timer can fetch handed-in files. Render fills it in. |

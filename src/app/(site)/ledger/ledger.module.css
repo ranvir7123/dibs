@@ -15,7 +15,7 @@
 .bar p { color: var(--sec, var(--mute)); font-size: 15px; line-height: 22px; margin-top: 2px; max-width: 60ch; }
 .bar > div { min-width: 0; }
 .bar :global(.btn) { flex: none; }
-.bar :global(.btn) svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.bar :global(.btn) svg { width: 18px; height: 18px; }
 
 .trouble { margin-bottom: 16px; }
 .phoneOnly { display: none; }
@@ -33,8 +33,12 @@
 
 /* AG Studio's own pieces, nudged to match the site. */
 .studio :global(.ag-studio-root) { font-family: var(--sans); }
+.studio :global(.ag-cell) { font-variant-numeric: tabular-nums; }
 .studio :global(.ag-studio-layout-widget-container) { box-sizing: border-box; padding: 14px 16px 12px; }
 .studio :global(.ag-studio-layout-widget-header) { margin: 2px 4px 10px; }
+/* A very long job name is cut with "..." so it cannot push the other columns off the screen. */
+.studio :global(.ag-cell[col-id="ledger.job"]) { max-width: 300px; }
+.studio :global(.ag-cell[col-id="ledger.job"] *) { max-width: 268px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The ask box: a white card like the others, with the same 8px of air, and a soft box to type in. */
 .studio :global(.ag-studio-root-panel-container-right) { margin: 8px 8px 8px 8px; overflow: hidden; }
 .studio :global(.ag-studio-ai-assistant-input) { background: var(--inset, #fff9e2); }

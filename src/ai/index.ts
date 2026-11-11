@@ -12,6 +12,8 @@
 import type { z } from "zod";
 import { MODELS } from "./models";
 
+export { AiTrouble, isAiTrouble, waitingOnAiNote } from "./trouble";
+
 /** A video for AI to watch: a public link on the video site, or a file kept on this machine. */
 export type VideoSource =
   | { kind: "public_link"; url: string }

@@ -79,6 +79,9 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Optional: a separate AI key for the ledger's "ask" box. Empty = it uses GOOGLE_AI_API_KEY.
+      - key: LEDGER_AI_API_KEY
+        sync: false
       # The slow checks as background tasks (see dibs-checks below). Both must be
       # filled for the site to hand work over; otherwise it does the work itself.
       - key: DIBS_CHECKS_ON_RENDER

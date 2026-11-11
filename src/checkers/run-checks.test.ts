@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { count, eq } from "drizzle-orm";
-import { useAi, type Ai } from "@/ai";
+import { AiTrouble, useAi, type Ai } from "@/ai";
 import { closeDb, getDb, type Db } from "@/db/client";
 import { newId } from "@/db/ids";
 import { checks, moneyMoves, readings, results, sales } from "@/db/schema";
@@ -293,6 +293,67 @@ describe("runChecks when no machine can measure the result (EXAMPLE AI answer)",
     const { claim } = await callDibs({ jobId: "job_kettle_translate", workerId });
     return claim.id.replace(/^clm_/, "");
   }
+});
+
+describe("runChecks when the AI cannot answer (a pretend AI that fails)", () => {
+  const cases: Array<[string, string, string]> = [
+    [
+      "is out of allowance (429)",
+      "The AI has used up its allowance for now and could not watch this video (3 models tried). It will be tried again.",
+      "The AI has used up its allowance for now and could not watch this video (3 models tried). Nothing has been decided yet. It will be tried again by itself; you do not need to hand in again.",
+    ],
+    [
+      "times out (504)",
+      "The AI was too busy or too slow to watch this video (3 models tried). It will be tried again.",
+      "The AI was too busy or too slow to watch this video (3 models tried). Nothing has been decided yet. It will be tried again by itself; you do not need to hand in again.",
+    ],
+    [
+      "was refused its key",
+      "The AI key (GOOGLE_AI_API_KEY) was refused. Check it in .env.local.",
+      "The AI is not available on this site right now, so this has not been checked yet. It will be tried again by itself; you do not need to hand in again.",
+    ],
+  ];
+
+  it.each(cases)("when the AI %s: nothing is decided, the worker reads why, and the next try works", async (_name, thrown, shown) => {
+    const link = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+    site.set(link, { views: 5000, likes: 300, comments: null, seconds: 213 });
+    const { claim } = await callDibs({ jobId: "job_kettle_views", workerId: "per_rohan" });
+    await handIn({ claimId: claim.id, url: link });
+    const resultId = (await db.select().from(results).where(eq(results.claimId, claim.id)))[0].id;
+    const checksBefore = await rowCount(checks, resultId);
+    const readingsBefore = await rowCount(readings, resultId);
+
+    ai.watch.mockImplementation(async () => {
+      throw new AiTrouble(thrown);
+    });
+    await expect(runChecks(claim.id)).rejects.toThrow(thrown); // the tick records this and tries again later
+
+    const waiting = await result(resultId);
+    expect(waiting.status).toBe("checking"); // not blocked, not paid, not "waiting for a person"
+    expect(waiting.earnedCents).toBe(0);
+    expect(waiting.summary).toBe(shown);
+    expect(waiting.summary).not.toMatch(/KEY|env\.local/);
+    expect(await rowCount(checks, resultId)).toBe(checksBefore); // no half-made checks
+    expect(await rowCount(readings, resultId)).toBe(readingsBefore);
+
+    // The AI answers again: the same hand-in is checked as if nothing had happened.
+    ai.watch.mockReset();
+    ai.watch.mockResolvedValue({ ...EXAMPLE_PROMO, rules: EXAMPLE_PROMO.rules.map((r) => ({ ...r, met: true, seenAt: "00:05" })) });
+    const report = await runChecks(claim.id);
+    expect(report.status).toBe("checking");
+    expect(report.checks.find((c) => c.key === "in_video")).toMatchObject({ passed: true, passedCount: 3, totalCount: 3 });
+    expect(report.summary).toBe("The checks passed. Nothing has been earned yet.");
+  });
+
+  it("leaves a paid result's sentence alone when the AI fails on a later look", async () => {
+    await db.update(results).set({ status: "paid", summary: "Everything passed." }).where(eq(results.id, "res_kettle_views_kabir"));
+    await handIn({ claimId: "clm_kettle_views_kabir", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" });
+    ai.watch.mockImplementation(async () => {
+      throw new AiTrouble("The AI was too busy or too slow to watch this video (3 models tried). It will be tried again.");
+    });
+    await expect(runChecks("clm_kettle_views_kabir")).rejects.toThrow("too busy");
+    expect(await result("res_kettle_views_kabir")).toMatchObject({ status: "paid", summary: "Everything passed." });
+  });
 });
 
 describe("runChecks on a sales job", () => {

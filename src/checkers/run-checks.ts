@@ -6,6 +6,7 @@
  */
 import { stat } from "node:fs/promises";
 import { and, asc, desc, eq, gte, isNotNull } from "drizzle-orm";
+import { isAiTrouble, waitingOnAiNote } from "@/ai/trouble";
 import { formatCents } from "@/contract/money";
 import type { Check, CheckGroup, CheckReport, JobCard, Measured, ResultStatus } from "@/contract/types";
 import { getDb } from "@/db/client";
@@ -267,7 +268,18 @@ export async function runChecksAt(claimId: string, now: Date = new Date()): Prom
       }
     }
   } catch (error) {
-    if (!(error instanceof NotAVideoLink) && !(error instanceof CannotCheck) && !isNotPublic(error)) throw error;
+    if (!(error instanceof NotAVideoLink) && !(error instanceof CannotCheck) && !isNotPublic(error)) {
+      // The AI could not do its part (too busy, out of allowance, timed out). Nothing is
+      // decided and nothing is saved except a plain note for the worker; the tick tries again.
+      if (isAiTrouble(error) && (result.status === "checking" || result.status === "waiting")) {
+        await db
+          .update(results)
+          .set({ summary: waitingOnAiNote(error), lastCheckedAt: now })
+          .where(eq(results.id, result.id))
+          .catch(() => {});
+      }
+      throw error;
+    }
     // The hand-in itself is the problem. The worker is told, and can hand in again.
     const summary = (error as Error).message;
     const rows = await db
