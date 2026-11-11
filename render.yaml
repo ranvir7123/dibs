@@ -3,7 +3,9 @@
 #   dibs        the site, always on
 #   dibs-db     its database (Postgres)
 #   dibs-tick   a timer that runs the checks once a minute
-#   dibs-checks background tasks that do the slow checks (AI watching a video)
+#
+# A fourth part, background tasks for the slow checks, is kept ready in
+# render-with-background-tasks.yaml and is added after the first deploy works.
 #
 # How to use it is in docs/GOING-ONLINE.md. No key or password is written
 # here: where a line says "sync: false", Render asks you for the value once,
@@ -69,17 +71,12 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
-      # The slow checks as background tasks (see dibs-checks below). Both must be
-      # filled for the site to hand work over; otherwise it does the work itself.
+      # For handing the slow checks to Render's background tasks later
+      # (render-with-background-tasks.yaml). Left empty, the timer does every check itself.
       - key: DIBS_CHECKS_ON_RENDER
         sync: false
       - key: RENDER_API_KEY
         sync: false
-      - key: DIBS_CHECKS_WORKFLOW
-        fromService:
-          name: dibs-checks
-          type: workflow
-          property: slug
 
   # ------------------------------------------------------------------ the timer
   - type: cron
@@ -127,36 +124,3 @@ services:
         fromService: { name: dibs, type: web, envVarKey: DIBS_CHECKS_ON_RENDER }
       - key: RENDER_API_KEY
         fromService: { name: dibs, type: web, envVarKey: RENDER_API_KEY }
-      - key: DIBS_CHECKS_WORKFLOW
-        fromService:
-          name: dibs-checks
-          type: workflow
-          property: slug
-
-  # ------------------------------------------------------------------ the slow checks
-  # Render Workflows: each check where AI watches a video or a recording runs
-  # as its own background task, so one slow video never holds up the others.
-  - type: workflow
-    name: dibs-checks
-    runtime: node
-    region: singapore
-    buildCommand: npm install --include=dev
-    startCommand: npm run checks:worker
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: dibs-db
-          property: connectionString
-      - key: DIBS_WEB_HOSTPORT
-        fromService:
-          name: dibs
-          type: web
-          property: hostport
-      - key: DIBS_BASE_URL
-        fromService: { name: dibs, type: web, envVarKey: DIBS_BASE_URL }
-      - key: GOOGLE_AI_API_KEY
-        fromService: { name: dibs, type: web, envVarKey: GOOGLE_AI_API_KEY }
-      - key: YOUTUBE_API_KEY
-        fromService: { name: dibs, type: web, envVarKey: YOUTUBE_API_KEY }
-      - key: ANTHROPIC_API_KEY
-        fromService: { name: dibs, type: web, envVarKey: ANTHROPIC_API_KEY }

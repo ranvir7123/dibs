@@ -1,6 +1,6 @@
 # Dibs: putting it online on Render
 
-Render makes four things from the file `render.yaml`: the site (always on), its database, a timer that runs the checks every minute, and a service for background tasks (used only if you do Part 8). You can do every part below on a phone.
+Render makes three things from the file `render.yaml`: the site (always on), its database, and a timer that runs the checks every minute. A fourth, for background tasks, is added later in Part 8. You can do every part below on a phone.
 
 Nobody has done these steps yet. What is still unchecked is listed at the end.
 
@@ -57,9 +57,9 @@ https://dashboard.render.com/blueprint/new
 24. `RENDER_API_KEY`: leave empty.
 25. Tap "Deploy Blueprint".
 26. Add your payment card if Render asks.
-27. Wait until `dibs-db`, `dibs`, `dibs-tick` and `dibs-checks` all show a green tick. The first build takes several minutes.
+27. Wait until `dibs-db`, `dibs` and `dibs-tick` all show a green tick. The first build takes several minutes.
 
-The tables are created and the six sample jobs are loaded by themselves during this first build. You run no command.
+The tables are created and the six sample jobs are loaded by themselves during this first build. You run no command. Every later build updates the tables by itself too, before the new version starts; nothing already in the database is wiped.
 
 ## Part 4. Tell the site its own address
 
@@ -121,36 +121,44 @@ https://dashboard.render.com
 
 ## Part 8. Hand the slow checks to Render's background tasks
 
-This part is extra. The site works without it: the timer then does every check itself. With it, each check where AI watches a video runs as its own background task (Render calls these "Workflows"), so one long video never holds up the rest. `render.yaml` already made the task service, named `dibs-checks`.
+This part is extra, and comes only after Part 7 has worked. The site works without it: the timer then does every check itself. With it, each check where AI watches a video runs as its own background task (Render calls these "Workflows"), so one long video never holds up the rest.
+
+57. Tell the main session: "ready for background tasks".
+58. Wait until it answers "pushed". It has then added a fourth service, `dibs-checks`, to `render.yaml`.
+
+https://dashboard.render.com/blueprints
+
+59. Tap the Blueprint named `dibs`, then tap "Manual Sync".
+60. Wait until `dibs-checks` shows a green tick. If it shows "Deploy failed", stop here and send its last 20 log lines to the main session; the site keeps working as it is.
 
 https://dashboard.render.com/u/settings#api-keys
 
-57. Tap "Create API Key".
-58. In "Name" type `dibs-checks`.
-59. Tap "Create API Key" and copy the key it shows. It is shown once only.
+61. Tap "Create API Key".
+62. In "Name" type `dibs-checks`.
+63. Tap "Create API Key" and copy the key it shows. It is shown once only.
 
 https://dashboard.render.com
 
-60. Tap `dibs`, then "Environment", then "Edit".
-61. In the box beside `RENDER_API_KEY`, paste the key from step 59.
-62. In the box beside `DIBS_CHECKS_ON_RENDER`, type `1`.
-63. Tap "Save, rebuild, and deploy".
-64. Tap `dibs-tick`, then "Manual Deploy", then "Deploy latest commit", so the timer reads the two new values.
-65. On the site, hand in a public video on a job that says "AI watches your video".
-66. Tap `dibs-tick`, then "Logs". Within two minutes a line must appear that starts `Handed the slow check for result`.
-67. Tap `dibs-checks`, then "Runs" (the list of task runs). A run of `runCheck` must appear and end as "Completed".
-68. Open the job's page on the site. The result card must show the checks AI made.
+64. Tap `dibs`, then "Environment", then "Edit".
+65. In the box beside `RENDER_API_KEY`, paste the key from step 63.
+66. In the box beside `DIBS_CHECKS_ON_RENDER`, type `1`.
+67. Tap "Save, rebuild, and deploy".
+68. Tap `dibs-tick`, then "Manual Deploy", then "Deploy latest commit", so the timer reads the two new values.
+69. On the site, hand in a public video on a job that says "AI watches your video".
+70. Tap `dibs-tick`, then "Logs". Within two minutes a line must appear that starts `Handed the slow check for result`.
+71. Tap `dibs-checks`, then "Runs" (the list of task runs). A run of `runCheck` must appear and end as "Completed".
+72. Open the job's page on the site. The result card must show the checks AI made.
 
 What you see if it does not work:
 
 | You see in the `dibs-tick` log | It means | Do this |
 |---|---|---|
-| No `Handed the slow check` line, and the check appears on the site anyway | The switch is off or a value is missing, so the timer did the check itself. | Check steps 61 to 64. |
-| `Could not hand the check ... (Render refused the key in RENDER_API_KEY), so it was done here instead.` | The key is wrong. The check was still done. | Do steps 57 to 64 again. |
+| No `Handed the slow check` line, and the check appears on the site anyway | The switch is off or a value is missing, so the timer did the check itself. | Check steps 65 to 68. |
+| `Could not hand the check ... (Render refused the key in RENDER_API_KEY), so it was done here instead.` | The key is wrong. The check was still done. | Do steps 61 to 68 again. |
 | `Could not hand the check ... (Render has no task called ...), so it was done here instead.` | The task service is not running, or its name did not reach the timer. The check was still done. | Tap `dibs-checks` and see whether its last build failed. Send its last 20 log lines to the main session. |
 | `Handed the slow check` appears, but the run on `dibs-checks` ends as "Failed" | The task could not do the check. It is tried once more by itself, and the timer tries again 10 minutes later. | Tap the failed run, copy the error line, send it to the main session. |
 
-To switch this part off again: empty the box beside `DIBS_CHECKS_ON_RENDER`, save, and do step 64.
+To switch this part off again: empty the box beside `DIBS_CHECKS_ON_RENDER`, save, and do step 68.
 
 ## If something goes wrong
 
@@ -168,19 +176,19 @@ The filming reset and the 5,000-click attack read the database from the laptop, 
 
 https://dashboard.render.com
 
-69. Tap `dibs-db`.
-70. Under "Connections", copy "External Database URL".
-71. On the laptop, open `C:\dev\paypal\dibs\.env.local` in Notepad.
-72. On the line that starts `DATABASE_URL=`, paste the address after the `=`, then type `?sslmode=require` straight after it.
-73. On the line that starts `DIBS_BASE_URL=`, replace what is after the `=` with your site address.
-74. Save and close the file.
-75. In PowerShell, inside `C:\dev\paypal\dibs`, reset for filming (this wipes the online database, so it asks you to mean it):
+73. Tap `dibs-db`.
+74. Under "Connections", copy "External Database URL".
+75. On the laptop, open `C:\dev\paypal\dibs\.env.local` in Notepad.
+76. On the line that starts `DATABASE_URL=`, paste the address after the `=`, then type `?sslmode=require` straight after it.
+77. On the line that starts `DIBS_BASE_URL=`, replace what is after the `=` with your site address.
+78. Save and close the file.
+79. In PowerShell, inside `C:\dev\paypal\dibs`, reset for filming (this wipes the online database, so it asks you to mean it):
 
 ```powershell
 $env:DIBS_ALLOW_SEED="1"; npx tsx scripts/demo-reset.ts; Remove-Item Env:DIBS_ALLOW_SEED
 ```
 
-76. When filming is over, empty the `DATABASE_URL=` line again, so the laptop goes back to its own database.
+80. When filming is over, empty the `DATABASE_URL=` line again, so the laptop goes back to its own database.
 
 ## What changed from the Vercel plan
 
@@ -197,8 +205,9 @@ $env:DIBS_ALLOW_SEED="1"; npx tsx scripts/demo-reset.ts; Remove-Item Env:DIBS_AL
 - Two ticks at the same moment on the hosted database. The lock that stops them was tested on the laptop's built-in database, and the "someone else has it" answer only with a stand-in.
 - Whether the timer picks up a key by itself after you change it on `dibs` (steps 33 and 43). If the timer's log complains about a missing key afterwards, tap `dibs-tick`, "Manual Deploy", "Deploy latest commit".
 - The timer fetching an uploaded recording from the site over Render's own network.
-- The laptop reaching the online database with `?sslmode=require` (step 72).
-- All of Part 8. Starting a background task on Render has never worked from here, because no Render account exists yet. What was tried: Render's real service refused a made-up key, and the timer then did the check itself and said so. Whether the task service builds and starts, whether its name reaches the timer, whether a task run can reach the database and fetch an uploaded recording, and the names of the buttons in steps 57 to 59 and 67 are all unchecked.
+- The laptop reaching the online database with `?sslmode=require` (step 76).
+- Whether Render accepts the fourth service when the Blueprint is synced in steps 59 and 60, and the name of the "Manual Sync" button.
+- All of Part 8. Starting a background task on Render has never worked from here, because no Render account exists yet. What was tried: Render's real service refused a made-up key, and the timer then did the check itself and said so. Whether the task service builds and starts, whether its name reaches the timer, whether a task run can reach the database and fetch an uploaded recording, and the names of the buttons in steps 61 to 63 and 71 are all unchecked.
 - The exact size of Render's bill. The site is $7 a month and the timer at least $1; the database price is shown by Render before you confirm.
 - The nine PayPal box names in step 38 are PayPal's event names put into words; the list on PayPal's page uses the same words in a slightly different order.
 

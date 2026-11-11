@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatCents, getJobPage, getMyWork } from "@/contract";
+import { formatCents, getJobPage, getMoneyTrail, getMyWork } from "@/contract";
 import type { ResultStatus } from "@/contract/types";
 import { AutoRefresh } from "@/ui/AutoRefresh";
 import { CallDibs } from "@/ui/CallDibs";
 import { EndJob } from "@/ui/EndJob";
-import { ago, count, daysLeftLabel, longDay, plural, sentence } from "@/ui/format";
+import { ago, count, daysLeftLabel, plural, sentence } from "@/ui/format";
 import { Icon } from "@/ui/Icon";
 import { MoneyBar } from "@/ui/JobTile";
+import MoneyTrail from "@/ui/MoneyTrail";
 import { ResultCardView } from "@/ui/ResultCardView";
 import { Empty, Notice } from "@/ui/States";
 import { getViewer } from "@/ui/viewer";
@@ -35,6 +36,7 @@ export default async function JobRunPage({ params, searchParams }: Props) {
   const { show } = await searchParams;
   const [page, viewer] = await Promise.all([getJobPage(jobId), getViewer()]);
   if (!page) notFound();
+  const trail = page.job.status === "draft" ? null : await getMoneyTrail(page.job.id);
 
   const { job, poster, money, progress, counts } = page;
   const now = new Date();
@@ -83,11 +85,6 @@ export default async function JobRunPage({ params, searchParams }: Props) {
           </div>
         </div>
         <MoneyBar paidCents={money.paidCents} lockedCents={money.lockedCents} big />
-        {job.status === "open" && job.holdEndsAt ? (
-          <p className="sub num" style={{ marginTop: 12 }}>
-            PayPal holds this until {longDay(job.holdEndsAt)}.
-          </p>
-        ) : null}
       </div>
 
       {job.status === "draft" ? (
@@ -174,6 +171,13 @@ export default async function JobRunPage({ params, searchParams }: Props) {
         <p className="sub" style={{ marginTop: 16, textAlign: "center" }}>
           {plural(page.notHandedIn, "more person has", "more people have")} called dibs and not handed anything in yet.
         </p>
+      ) : null}
+
+      {trail ? (
+        <>
+          <h2 className="section">The money, step by step</h2>
+          <MoneyTrail trail={trail} />
+        </>
       ) : null}
     </>
   );

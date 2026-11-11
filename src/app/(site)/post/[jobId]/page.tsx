@@ -5,6 +5,7 @@ import { formatCents, getJobPage } from "@/contract";
 import { HoldForm } from "@/ui/HoldForm";
 import { Icon } from "@/ui/Icon";
 import { JobCardPanel, TRIES } from "@/ui/JobCardPanel";
+import PayPalButton from "@/ui/PayPalButton";
 import { Notice } from "@/ui/States";
 import { getViewer } from "@/ui/viewer";
 
@@ -66,7 +67,15 @@ export default async function JobCardPage({ params, searchParams }: { params: Pr
                 No money was locked. You can try again when you are ready.
               </Notice>
             ) : null}
-            <HoldForm jobId={job.id} amount={formatCents(job.budgetCents)} />
+            <div className="hold">
+              <PayPalButton kind="hold" jobId={job.id}>
+                <HoldForm jobId={job.id} amount={formatCents(job.budgetCents)} bare />
+              </PayPalButton>
+              <Link href={`/post?from=${job.id}`} className="btn ghost">
+                Change the card
+              </Link>
+            </div>
+            <p className="num">Pressing the PayPal button holds {formatCents(job.budgetCents)}. You&apos;re charged only for results.</p>
           </>
         ) : (
           <>

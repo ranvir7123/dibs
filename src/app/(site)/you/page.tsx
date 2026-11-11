@@ -3,7 +3,9 @@ import Link from "next/link";
 import { chooseWho } from "../actions";
 import { Avatar } from "@/ui/Avatar";
 import { Icon } from "@/ui/Icon";
+import { getPayPalSetup } from "@/contract";
 import { JoinForm } from "@/ui/JoinForm";
+import PayPalLogin from "@/ui/PayPalLogin";
 import { listChoices } from "@/ui/people";
 import { getViewer, safeNext } from "@/ui/viewer";
 
@@ -12,8 +14,10 @@ export const metadata: Metadata = { title: "Who you are" };
 
 // Choosing who you are. There are no passwords: pick a person, or join with a
 // name and the email your PayPal uses.
-export default async function YouPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const next = safeNext((await searchParams).next);
+export default async function YouPage({ searchParams }: { searchParams: Promise<{ next?: string; paypal?: string }> }) {
+  const { next: rawNext, paypal } = await searchParams;
+  const next = safeNext(rawNext);
+  const paypalLoginOn = getPayPalSetup().loginOn;
   const viewer = await getViewer();
   const choices = await listChoices(viewer);
 
@@ -28,7 +32,19 @@ export default async function YouPage({ searchParams }: { searchParams: Promise<
               : "Dibs has no passwords. Pick who you are, or join with a name and the email your PayPal uses."}
           </p>
         </div>
+        {viewer?.paypalAccountId ? (
+          <span className="pill paid">
+            <Icon name="ok" />
+            PayPal account confirmed
+          </span>
+        ) : null}
       </div>
+
+      {paypal === "confirmed" ? (
+        <div style={{ marginBottom: 24 }}>
+          <PayPalLogin confirmed />
+        </div>
+      ) : null}
 
       {viewer ? (
         <nav className="shortcuts" aria-label="Your pages">
@@ -80,6 +96,12 @@ export default async function YouPage({ searchParams }: { searchParams: Promise<
             Join as someone new
           </h3>
           <p className="sub">No password. The email is only used to send your pay.</p>
+          {paypalLoginOn ? (
+            <div className="or-way">
+              <PayPalLogin next="/you" failed={paypal === "failed"} />
+              <p className="or">Or join with your email</p>
+            </div>
+          ) : null}
           <JoinForm next={next} />
         </section>
       </div>

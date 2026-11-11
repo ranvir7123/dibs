@@ -36,7 +36,10 @@ export function LedgerBoard({ rows, licenseKey }: { rows: LedgerRow[]; licenseKe
       <div className={styles.bar}>
         <div>
           <h2 id="ledger-charts">Charts and every line</h2>
-          <p>{asking ? "Type a question in the box on the right. The answer is built from the rows on this page." : "Built from the same rows. Ask a question and the dashboard builds the answer."}</p>
+          <p>
+            {asking ? "Type your question in the ask box. The answer is built from the rows on this page." : "Built from the same rows. Ask a question and the dashboard builds the answer."}
+            {asking ? <span className={styles.phoneOnly}> Close the ask box to see the charts again.</span> : null}
+          </p>
         </div>
         <button type="button" className={asking ? "btn ghost" : "btn main-b"} aria-pressed={asking} onClick={() => setAsking((now) => !now)}>
           {asking ? null : (

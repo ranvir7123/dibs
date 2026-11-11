@@ -192,6 +192,14 @@ a.btn, a.pill { text-decoration: none; }
 .input::placeholder, .typed::placeholder { color: var(--mute); opacity: .8; }
 .input:focus-visible { border-color: var(--text); }
 .form { display: grid; gap: 16px; }
+/* Two ways to join: PayPal first, then the email form. */
+.or-way { display: grid; gap: 16px; margin-bottom: 16px; }
+.or { display: flex; align-items: center; gap: 12px; font: 600 14px/20px var(--sans); color: var(--mute); }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.or-way .btn { width: 100%; }
+.head > .head-btns { display: flex; gap: 8px; flex-wrap: wrap; flex: none; }
+/* A fact row sitting straight on the butter page is white, not pale butter. */
+.stack > .kv { background: var(--card); padding: 14px 24px; }
 
 /* ================= Part 2: each screen ================= */
 
@@ -289,6 +297,10 @@ textarea.typed:focus-visible { border-color: var(--text); }
 .jc-wait .ic svg { width: 24px; height: 24px; }
 .jc-wait h3 { font: 800 22px/28px var(--sans); letter-spacing: -0.025em; }
 .jc-wait p { color: var(--sec); max-width: 40ch; }
+
+.hold { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.hold > div, .hold > form { flex: 1 1 260px; min-width: 0; }
+.hold paypal-button { max-width: none !important; }
 
 /* ---------- 3. a job while it runs ---------- */
 .run-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }

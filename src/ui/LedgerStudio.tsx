@@ -105,7 +105,7 @@ const REPORT: AgReportState = {
         },
         lines: {
           type: "grid",
-          dataMapping: { cols: ["when", "job", "worker", "happened", "measured", "amount", "paypalRef", "status"].map(field) },
+          dataMapping: { cols: ["when", "happened", "amount", "job", "worker", "measured", "paypalRef", "status"].map(field) },
           sort: [{ field: field("when"), direction: "desc" }],
           format: { title: { enabled: true, text: "Every money move" }, style: { columnAutoSize: true } },
         },

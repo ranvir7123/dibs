@@ -16,6 +16,8 @@ import { handlePayPalMessage } from "./webhook";
 import { GET as loginStart } from "@/app/api/paypal/login/start/route";
 import { GET as loginReturn } from "@/app/api/paypal/login/return/route";
 import { POST as holdOrder } from "@/app/api/paypal/hold/order/route";
+import { POST as holdFinish } from "@/app/api/paypal/hold/finish/route";
+import { POST as shopFinish } from "@/app/api/paypal/shop/finish/route";
 import { POST as refundRoute } from "@/app/api/paypal/refund/route";
 
 let db: Db;
@@ -400,6 +402,56 @@ describe("who may use the money addresses", () => {
     const ok = await holdOrder(ask({ jobId: job.id }, `other=1; dibs_person=${job.posterId}`));
     expect(await ok.json()).toMatchObject({ ok: true, orderId: expect.stringMatching(/^ORDER/) });
     expect((await holdOrder(ask({ jobId: "job_nope" }, `dibs_person=${job.posterId}`))).status).toBe(404);
+  });
+
+  it("lets only the poster finish a job's hold, even when the order was really approved", async () => {
+    const job = await draft();
+    const order = await startHoldOrder(job.id);
+    fake.approve(order.paypalOrderId);
+    const body = { jobId: job.id, orderId: order.paypalOrderId };
+    expect((await holdFinish(ask(body))).status).toBe(403);
+    expect((await holdFinish(ask(body, "dibs_person=per_someone_else"))).status).toBe(403);
+    expect((await holdFinish(ask({ jobId: "job_nope", orderId: order.paypalOrderId }, `dibs_person=${job.posterId}`))).status).toBe(404);
+    expect(fake.count("authorizeOrder")).toBe(0);
+    expect((await db.select().from(jobs).where(eq(jobs.id, job.id)))[0]).toMatchObject({ status: "draft", paypalAuthorizationId: null });
+    const ok = await holdFinish(ask(body, `dibs_person=${job.posterId}`));
+    expect(await ok.json()).toMatchObject({ ok: true, jobId: job.id, holdEndsAt: expect.any(String) });
+    expect((await db.select().from(jobs).where(eq(jobs.id, job.id)))[0].status).toBe("open");
+  });
+
+  it("will not attach another job's order, or an order for another amount, even for the poster", async () => {
+    const mine = await draft();
+    const other = await draft();
+    const me = `dibs_person=${mine.posterId}`;
+    const theirs = await startHoldOrder(other.id);
+    fake.approve(theirs.paypalOrderId);
+    const swapped = await holdFinish(ask({ jobId: mine.id, orderId: theirs.paypalOrderId }, me));
+    expect(swapped.status).toBe(400);
+    expect((await swapped.json()).message).toContain("does not match this job");
+    // An approved order that carries my job's label but a smaller amount than the job's budget.
+    const small = await fake.createHoldOrder({ requestId: "r-small", amountCents: 100, description: "x", customId: `dibs-job:${mine.id}` });
+    fake.approve(small.id);
+    const cheap = await holdFinish(ask({ jobId: mine.id, orderId: small.id }, me));
+    expect(cheap.status).toBe(400);
+    expect((await cheap.json()).message).toContain("does not match this job");
+    expect(fake.count("authorizeOrder")).toBe(0);
+    expect((await db.select().from(jobs).where(eq(jobs.id, mine.id)))[0]).toMatchObject({ status: "draft", paypalOrderId: null, paypalAuthorizationId: null });
+    expect((await db.select().from(jobs).where(eq(jobs.id, other.id)))[0].status).toBe("draft");
+  });
+
+  it("finishes a shop order only from PayPal's own answer: not approved means not paid, and a hold order is refused", async () => {
+    const { code } = await shop();
+    const order = await startShopOrder({ code, base: "http://localhost:3001", inWindow: true });
+    const early = await shopFinish(ask({ orderId: order.paypalOrderId }));
+    expect(await early.json()).toMatchObject({ ok: true, paid: false });
+    expect(await db.select().from(sales).where(eq(sales.paypalOrderId, order.paypalOrderId))).toHaveLength(0);
+    const job = await draft();
+    const hold = await startHoldOrder(job.id);
+    fake.approve(hold.paypalOrderId);
+    const wrong = await shopFinish(ask({ orderId: hold.paypalOrderId }));
+    expect(wrong.status).toBe(400);
+    expect(fake.count("captureOrder")).toBe(0);
+    expect((await shopFinish(ask({ orderId: "not an order" }))).status).toBe(400);
   });
 
   it("lets only the shop that made a sale refund it", async () => {

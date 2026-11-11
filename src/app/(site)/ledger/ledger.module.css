@@ -18,6 +18,7 @@
 .bar :global(.btn) svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .trouble { margin-bottom: 16px; }
+.phoneOnly { display: none; }
 
 /* AG Studio fills this box, so the box sets the height. */
 /* AG Studio keeps 8px of air around every card. The box is pulled out by the same 8px so the cards line up with the page. */
@@ -26,7 +27,7 @@
 .studio > * { height: 100%; }
 
 /* While AG Studio loads: grey blocks in the shape of the two charts and the table. */
-.wait { margin: 8px; height: calc(100% - 16px) !important; display: grid; grid-template-columns: 14fr 10fr; grid-template-rows: 288px 1fr; gap: 16px; height: 100%; }
+.studio > .wait { margin: 8px; height: calc(100% - 16px); display: grid; grid-template-columns: 14fr 10fr; grid-template-rows: 272px 1fr; gap: 16px; }
 .wait > span { display: block; width: auto; height: auto; border-radius: var(--r-card, 24px); background: var(--card); }
 .wait > span:last-child { grid-column: 1 / -1; }
 
@@ -34,6 +35,9 @@
 .studio :global(.ag-studio-root) { font-family: var(--sans); }
 .studio :global(.ag-studio-layout-widget-container) { box-sizing: border-box; padding: 14px 16px 12px; }
 .studio :global(.ag-studio-layout-widget-header) { margin: 2px 4px 10px; }
+/* The ask box: a white card like the others, with the same 8px of air, and a soft box to type in. */
+.studio :global(.ag-studio-root-panel-container-right) { margin: 8px 8px 8px 8px; overflow: hidden; }
+.studio :global(.ag-studio-ai-assistant-input) { background: var(--inset, #fff9e2); }
 
 @media (max-width: 1180px) {
   .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -43,6 +47,11 @@
   .bar { flex-direction: column; align-items: stretch; margin: 28px 0 16px; }
   .bar :global(.btn) { width: 100%; }
   /* The widgets stack in one column on a phone, so the box is taller. */
-  .studio, .studio.asking { height: 1040px; }
-  .wait { grid-template-columns: 1fr; grid-template-rows: 288px 288px 1fr; }
+  .studio { height: 976px; }
+  /* On a phone the ask box takes the whole dashboard, so it is kept short enough to see the typing box. */
+  .studio.asking { height: min(640px, 78vh); }
+  .studio.asking :global(.ag-studio-root-panel-container-right),
+  .studio.asking :global(.ag-studio-ai-panel) { width: auto !important; min-width: 0 !important; max-width: none !important; flex: 1 1 auto; }
+  .phoneOnly { display: inline; }
+  .studio > .wait { grid-template-columns: 1fr; grid-template-rows: 272px 272px 1fr; }
 }

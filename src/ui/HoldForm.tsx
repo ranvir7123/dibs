@@ -8,8 +8,11 @@ import { Notice } from "./States";
 
 const start: FormState = { error: null };
 
-/** The foot of a draft job card: lock the money with PayPal, or go back and change the card. */
-export function HoldForm({ jobId, amount }: { jobId: string; amount: string }) {
+/**
+ * The foot of a draft job card: lock the money with PayPal, or go back and change the card.
+ * `bare` leaves out the "Change the card" link and the line under it, for when the page draws those itself.
+ */
+export function HoldForm({ jobId, amount, bare = false }: { jobId: string; amount: string; bare?: boolean }) {
   const [state, action, pending] = useActionState(holdMoney, start);
   return (
     <>
@@ -24,11 +27,13 @@ export function HoldForm({ jobId, amount }: { jobId: string; amount: string }) {
           <Icon name="lock" />
           {pending ? "Opening PayPal…" : `Hold ${amount} with PayPal`}
         </button>
-        <Link href={`/post?from=${jobId}`} className="btn ghost">
-          Change the card
-        </Link>
+        {bare ? null : (
+          <Link href={`/post?from=${jobId}`} className="btn ghost">
+            Change the card
+          </Link>
+        )}
       </form>
-      <p>PayPal holds the money. You&apos;re charged only for results.</p>
+      {bare ? null : <p>PayPal holds the money. You&apos;re charged only for results.</p>}
     </>
   );
 }
