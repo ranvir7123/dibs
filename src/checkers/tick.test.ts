@@ -14,6 +14,7 @@ import { jobs, moneyMoves, results } from "@/db/schema";
 import { seed } from "@/db/seed";
 import { settings } from "@/settings";
 import { endJob, tick } from "./index";
+import { guardSampleData } from "./sample";
 import { NotAVideoLink, useVideoReader } from "./video-site";
 
 let db: Db;
@@ -25,9 +26,11 @@ const reader = vi.fn(async (link: string) => {
 beforeAll(async () => {
   db = await getDb();
   useVideoReader(reader);
+  guardSampleData(false); // these tests use the sample rows as if they were real work
 });
 afterAll(async () => {
   useVideoReader(null);
+  guardSampleData(true);
   await closeDb();
 });
 beforeEach(async () => {

@@ -10,6 +10,7 @@ import { seed } from "@/db/seed";
 import { settings } from "@/settings";
 import { CHECK_TASK, handOverOn, nextCheckIsSlow, runHandedOverCheck, useTaskStarter } from "./hand-over";
 import { tickAt } from "./tick";
+import { guardSampleData } from "./sample";
 import { NotAVideoLink, useVideoReader } from "./video-site";
 
 // Render itself is never called in these tests: a stand-in takes the place of
@@ -33,10 +34,12 @@ beforeAll(async () => {
   db = await getDb();
   useTaskStarter(starter);
   useVideoReader(reader);
+  guardSampleData(false); // these tests use the sample rows as if they were real work
 });
 afterAll(async () => {
   useTaskStarter(null);
   useVideoReader(null);
+  guardSampleData(true);
   await closeDb();
 });
 beforeEach(async () => {

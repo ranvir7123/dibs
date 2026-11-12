@@ -12,6 +12,7 @@ import { letGo, payWorker } from "@/money";
 import { settings } from "@/settings";
 import { handOverCheck, handOverOn, nextCheckIsSlow } from "./hand-over";
 import { runChecksAt } from "./run-checks";
+import { isSampleJob, isSampleResult } from "./sample";
 import { tickBusyHere, withTickLock } from "./tick-lock";
 
 /**
@@ -48,6 +49,8 @@ async function owedByResult(jobIds: string[]): Promise<Owed[]> {
       resultId: results.id,
       jobId: results.jobId,
       status: results.status,
+      handInUrl: results.handInUrl,
+      handInFile: results.handInFile,
       earned: results.earnedCents,
       taken: sql<number>`coalesce(sum(${moneyMoves.amountCents}) filter (where ${moneyMoves.kind} = 'take' and ${moneyMoves.status} in ('done', 'pending')), 0)`.mapWith(Number),
       takesDone: sql<number>`count(*) filter (where ${moneyMoves.kind} = 'take' and ${moneyMoves.status} = 'done')`.mapWith(Number),
@@ -57,7 +60,8 @@ async function owedByResult(jobIds: string[]): Promise<Owed[]> {
     .leftJoin(moneyMoves, eq(moneyMoves.resultId, results.id))
     .where(inArray(results.jobId, jobIds))
     .groupBy(results.id);
-  return rows.map((r) => ({
+  // The sample data is a backdrop: its results are never paid by the tick.
+  return rows.filter((r) => !isSampleResult({ id: r.resultId, handInUrl: r.handInUrl, handInFile: r.handInFile })).map((r) => ({
     resultId: r.resultId,
     jobId: r.jobId,
     owedCents: r.status === "blocked" ? 0 : Math.max(0, r.earned - r.taken),
@@ -111,7 +115,7 @@ async function closeJob(job: { id: string }, now: Date, summary: TickSummary): P
   const jobResults = await db.select().from(results).where(eq(results.jobId, job.id));
   let allChecked = true;
   for (const r of jobResults) {
-    if (!r.objectedAt && r.status !== "blocked") allChecked = (await check(r.claimId, r.id)) && allChecked;
+    if (!r.objectedAt && r.status !== "blocked" && !isSampleResult(r)) allChecked = (await check(r.claimId, r.id)) && allChecked;
   }
   for (const owed of await owedByResult([job.id])) {
     if (owed.owedCents > 0 || owed.payoutStuck) await pay(owed.resultId);
@@ -194,12 +198,14 @@ async function tickWork(now: Date, summary: TickSummary, budgetMs: number): Prom
 
     // 1. Every check that is due, on jobs that are still running.
     const due = await db
-      .select({ claimId: results.claimId, resultId: results.id })
+      .select({ claimId: results.claimId, resultId: results.id, handInUrl: results.handInUrl, handInFile: results.handInFile })
       .from(results)
       .innerJoin(jobs, eq(jobs.id, results.jobId))
       .where(and(lte(results.nextCheckAt, now), isNull(results.objectedAt), eq(jobs.status, "open"), gt(jobs.endsAt, now)))
       .orderBy(results.nextCheckAt);
     for (const row of due) {
+      // The sample data is a backdrop with made-up links: it is never re-read or written to.
+      if (isSampleResult({ id: row.resultId, handInUrl: row.handInUrl, handInFile: row.handInFile })) continue;
       if (outOfTime()) {
         summary.problems.push("Ran out of time; the remaining checks run on the next tick.");
         break;
@@ -247,6 +253,7 @@ async function tickWork(now: Date, summary: TickSummary, budgetMs: number): Prom
     // 3. Jobs past their end: one last check and payment for each result, then the rest of the hold is let go.
     const over = await db.select().from(jobs).where(and(eq(jobs.status, "open"), lte(jobs.endsAt, now)));
     for (const job of over) {
+      if (isSampleJob(job)) continue; // no real PayPal hold stands behind a sample job
       if (outOfTime()) break;
       await closeJob(job, now, summary);
     }

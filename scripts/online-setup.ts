@@ -6,6 +6,9 @@
  *   2. If the database is completely empty (nobody has ever joined), loads the
  *      sample jobs and the people in the video.
  *
+ *   3. Puts back any sample card that an earlier version of the timer wrote
+ *      a wrong error line on. Only those cards, only that line.
+ *
  * It never wipes anything: step 2 only happens when there are no people at
  * all, which is true exactly once, on the very first run. To start again from
  * the sample jobs later, use "npx tsx scripts/demo-reset.ts" (it asks you to
@@ -16,6 +19,7 @@
 import "../src/db/cli/env";
 import { count } from "drizzle-orm";
 import { closeDb, dbKind, describeDb, getDb, migrateDb } from "../src/db/client";
+import { restoreSampleCards } from "../src/checkers/sample";
 import { people } from "../src/db/schema";
 import { resetForFilming } from "./demo-lib";
 
@@ -27,7 +31,11 @@ async function main() {
 
   const joined = (await db.select({ n: count() }).from(people))[0].n;
   if (joined > 0) {
-    console.log(`${joined} people are already in the database, so nothing was loaded and nothing was changed.`);
+    console.log(`${joined} people are already in the database, so nothing was loaded.`);
+    // An earlier version of the timer wrote "This link is not a video we can read" on
+    // some sample cards. Those cards get their own sentence back; nothing else is touched.
+    const restored = await restoreSampleCards(db);
+    console.log(restored > 0 ? `${restored} sample cards had a wrong error line on them and were put back.` : "No sample card needed putting back. Nothing was changed.");
     return;
   }
   if ((await dbKind()) !== "hosted") {
