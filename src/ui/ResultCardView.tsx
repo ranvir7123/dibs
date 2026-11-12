@@ -5,6 +5,8 @@ import { formatCents } from "@/contract/money";
 import type { Check, Job, Person, ResultCard } from "@/contract/types";
 import { Avatar } from "./Avatar";
 import { Chart } from "./ChartView";
+import { ClipCover } from "./ClipCover";
+import { coverFor } from "./cover";
 import type { ChartPoint } from "./chart";
 import { ago, clock, count, dayMonth, firstName, plural, tone } from "./format";
 import { Icon, type IconName } from "./Icon";
@@ -162,8 +164,11 @@ function Clip({ card }: { card: ResultCard }) {
   const href = handInAddress(result.handInUrl ?? result.handInFile);
   const isFile = result.handInKind === "file";
   const alt = tone(worker.name) === "a2" || tone(worker.name) === "a4";
+  // Only a handed-in link gets a cover picture; a recording or file keeps the plain dark box.
+  const cover = isFile ? null : coverFor(result.handInUrl);
   return (
     <div className={alt ? "clip alt" : "clip"}>
+      {cover ? <ClipCover cover={cover} /> : null}
       <div className="row" aria-hidden="true">
         <span className="chip-d round">
           <Icon name="play" fill />

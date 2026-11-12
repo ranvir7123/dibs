@@ -348,6 +348,11 @@ textarea.typed:focus-visible { border-color: var(--text); }
 .clip a.mid:hover { background: rgba(10, 10, 10, .82); }
 .clip video, .clip img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .clip.game video, .clip.game img { object-fit: contain; }
+/* The cover picture behind a posted video. Hidden until it has really loaded, so a missing picture leaves the plain dark box. Dimmed a little so the labels on top stay easy to read. */
+.clip img.cover { opacity: 0; filter: brightness(.8); transition: opacity .2s ease; pointer-events: none; }
+.clip img.cover.ok { opacity: 1; }
+/* YouTube's picture has black bars above and below; zooming in hides them. */
+.clip img.cover.youtube { transform: scale(1.34); }
 
 .stats { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
 .counts { display: flex; flex-wrap: wrap; gap: 8px; }
