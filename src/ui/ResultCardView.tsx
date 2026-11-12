@@ -51,7 +51,7 @@ export function ResultCardView({
   return (
     <article className="panel res">
       <div className="res-head">
-        <Avatar name={heading === "job" ? poster.name : worker.name} />
+        <Avatar name={heading === "job" ? poster.name : worker.name} id={heading === "job" ? poster.id : worker.id} />
         {heading === "job" ? (
           <Link href={`/jobs/${job.id}`} className="name">
             <b>{job.title}</b>

@@ -21,7 +21,7 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
   const [viewer, openJobs] = await Promise.all([getViewer(), openJobCount()]);
   const meLabel = viewer ? `You are ${viewer.name}. Switch person` : "Choose who you are";
   const mePicture = viewer ? (
-    <Avatar name={viewer.name} />
+    <Avatar name={viewer.name} id={viewer.id} />
   ) : (
     <span className="avatar" aria-hidden="true">
       <Icon name="user" />

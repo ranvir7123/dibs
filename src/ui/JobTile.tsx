@@ -42,7 +42,7 @@ export function JobTile({ item, action }: { item: BoardJob; action: ReactNode })
         </span>
       ) : null}
       <div className="job-top">
-        <Avatar name={poster.name} />
+        <Avatar name={poster.name} id={poster.id} />
         <div className="who">
           <b>{poster.name}</b>
           <small>{categoryLabel(job.category)}</small>

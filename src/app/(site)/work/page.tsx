@@ -117,7 +117,7 @@ function NotHandedIn({ item }: { item: MyWorkItem }) {
   return (
     <article className="panel res">
       <div className="res-head">
-        <Avatar name={poster.name} />
+        <Avatar name={poster.name} id={poster.id} />
         <Link href={`/jobs/${job.id}`} className="name">
           <b>{job.title}</b>
           <span>

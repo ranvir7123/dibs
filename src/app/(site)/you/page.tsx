@@ -80,7 +80,7 @@ export default async function YouPage({ searchParams }: { searchParams: Promise<
                 const on = viewer?.id === person.id;
                 return (
                   <button key={person.id} name="personId" value={person.id} className={on ? "pick on" : "pick"} aria-pressed={on}>
-                    <Avatar name={person.name} />
+                    <Avatar name={person.name} id={person.id} />
                     <span>
                       <b>{person.name}</b>
                       <small>{on ? "This is you" : does}</small>

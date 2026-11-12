@@ -232,7 +232,10 @@ a.numbox.mine:hover { background: #1a6a43; }
 .flag svg { width: 14px; height: 14px; stroke-width: 2.4; }
 .job-top { display: flex; align-items: center; gap: 12px; }
 .job-top .who { flex: 1; min-width: 0; }
-.job-top .who b { display: block; font: 700 15px/20px var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+.job-top .who b { display: block; font: 700 15px/20px var(--sans); overflow-wrap: break-word; }
+.job-top .pill { flex: none; }
+/* A sample business's made-up logo sits in the same round badge as the letter. */
+.avatar.logo svg { width: 60%; height: 60%; display: block; }
 .job-top .who small { display: block; font: 500 13px/18px var(--sans); color: var(--mute); }
 .job-top .pill { height: 28px; padding: 0 10px 0 8px; font-size: 13px; }
 .job-top .pill svg { width: 14px; height: 14px; }
