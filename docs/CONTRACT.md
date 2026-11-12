@@ -56,7 +56,7 @@ All are in `src/contract/types.ts`, each field with its own comment. Each table 
 |---|---|
 | `JobCard` | Everything the poster reads before locking money. Fields below. |
 | `PayRule` | How pay is worked out. One of three kinds, below. |
-| `CheckerSpec` | The part of the card the checker's code reads: `evidence`, `handIn`, `mustShow`, `cheatTests`, `machineCheckable`. |
+| `CheckerSpec` | The part of the card the checker's code reads: `evidence`, `handIn`, `mustShow`, `cheatTests`, `machineCheckable`, and `doesNotCount` (may be missing). `doesNotCount` is a list of things the business already knows or does not want, in its own words, such as "The coupon box accepts expired codes". A find that matches a line on it earns nothing. Each find is also paid once: a find already counted for another worker on the same job earns nothing. Cards saved before this list existed do not have it; read a missing list as empty. |
 | `JobRule` | One yes-or-no rule: `id` (short stable name), `label` (shown on screen), `detail` (what the checker looks for). |
 | `EvidenceKind` | Where the truth is read: `public_page`, `tracked_link`, `paypal_sale`, `ai_watch`, `ai_read`, `live_site` (not in the first build), `ai_opinion` (nothing can be measured). |
 | `HandInKind` | What the worker gives: `link`, `file` or `none`. |
@@ -283,9 +283,10 @@ Listed in `.env.example` with no values. Put real values in `.env.local`, which 
 | `PAYPAL_LOGIN_ON` | A | `1` = show "Log in with PayPal". Empty = only the email way shows. |
 | `PAYPAL_TEST_BUYER_EMAIL` | A, D | The pretend buyer who approves the hold |
 | `PAYPAL_TEST_WORKER_EMAIL`, `PAYPAL_TEST_WORKER2_EMAIL` | A, D | The pretend workers who get paid |
-| `GOOGLE_AI_API_KEY` | B | AI that watches video |
+| `GOOGLE_AI_API_KEY` | B | AI that watches a public video link (and an uploaded recording when there is no `ANTHROPIC_API_KEY`) |
 | `YOUTUBE_API_KEY` | B | Reading view counts |
-| `ANTHROPIC_API_KEY` | B | AI that writes and judges text |
+| `ANTHROPIC_API_KEY` | B | AI that writes and judges text, and looks at uploaded recordings (cut into pictures), photos and PDFs |
+| `FFMPEG_PATH` | B | Optional: where the ffmpeg program is, which cuts a recording into pictures. Empty = the copy that comes with the `ffmpeg-static` package, then plain `ffmpeg` on the machine. |
 | `LEDGER_AI_API_KEY` | Ledger | Optional: a separate Google AI key for the Ledger's ask box. Empty = `GOOGLE_AI_API_KEY` is used. |
 | `TICK_SECRET` | B, D | Password the outside timer sends with each call |
 | `DIBS_FILES_DIR` | B | Online only: folder where handed-in files are kept. Empty = a folder inside the project. |
@@ -293,6 +294,7 @@ Listed in `.env.example` with no values. Put real values in `.env.local`, which 
 | `DIBS_CHECKS_ON_RENDER` | B | `1` = slow checks are handed to Render's background tasks. Empty = the timer does every check itself. |
 | `RENDER_API_KEY` | B | A key from Render, so the timer may start background tasks |
 | `DIBS_CHECKS_WORKFLOW` | B | The name of the background-task service on Render |
+| `DIBS_ALLOW_LOCAL_PAGES` | B | `1` = Dibs may open web pages on this machine or a private network (for trying the "Dibs opens the page itself" check on a laptop). Empty = only public pages. Never set it online. |
 
 ## 7. Commands
 

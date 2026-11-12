@@ -31,6 +31,7 @@ export const cardDraft = z.object({
   handIn: z.enum(["link", "file", "none"]),
   machineCheckable: z.boolean().describe("False when no machine can measure the result and AI can only give an opinion"),
   mustShow: z.array(rule).describe("Things the hand-in must contain before any pay; empty when none"),
+  doesNotCount: z.array(z.string()).describe("Things the poster says they already know or that do not count, copied from the sentence, one per entry; empty when none"),
   cheatTests: z.array(
     z.enum(["repeat_visitor", "click_burst", "view_jump", "views_without_likes", "clicks_against_views", "recording_one_take", "recording_right_subject"]),
   ),
@@ -62,9 +63,9 @@ From the poster's one sentence, decide how the result can be checked. Any kind o
 - public_page: a public page we can read. Today that is a public YouTube video's views, likes and comments. The worker hands in a link.
 - tracked_link: a link Dibs owns, one per worker, counting clicks from different real visitors. Needs the poster's page address (targetUrl).
 - paypal_sale: a sale seen by PayPal that carries the worker's code. Needs the poster's shop page address (targetUrl). The worker hands in nothing (handIn "none").
-- ai_watch: AI watches a public video link or an uploaded recording and decides yes-or-no rules, with the moment each was seen.
-- ai_read: AI reads an uploaded text file against yes-or-no rules.
-- live_site: AI visits a live website. NOT available yet. Use ai_watch on the worker's recording instead and say so in howChecked.
+- ai_watch: AI watches a public video link, or looks at an uploaded recording or photo, and decides yes-or-no rules, with the moment each was seen.
+- ai_read: AI reads an uploaded text file or PDF against yes-or-no rules.
+- live_site: Dibs opens a public web page itself and reads its words. No logins. The worker hands in links (handIn link). Use it when the result is something that should now be true on a public page, such as a business being listed on a site with the right name, address, phone and opening hours. These jobs usually pay per_unit with unit "item" and batchSize 1, with a unitLabel that names the thing (for example "site listed correctly"): each handed-in page that matches every fact in the sentence is one item. Use live_site by itself, without public_page or ai_watch. Say in howChecked that Dibs opens each link itself and compares the page with the facts in the sentence, so screenshots are not needed. When the poster names sites they are already on, put each one in doesNotCount.
 - ai_opinion: nothing a machine can measure. AI gives its opinion of the work and the poster has ${settings.objectionWindowDays} days to object; silence means AI's answer stands.
 
 Be honest. If the result is a matter of quality or taste (a good translation, a nice logo, a well-written post), no machine can measure it: set machineCheckable to false, include ai_opinion in evidence, and say plainly in howChecked that this is AI's opinion and not a measurement. Never dress an opinion up as a measurement. If part of a job can be measured and part cannot, measure what can be measured and say what cannot.
@@ -77,6 +78,10 @@ Cheat tests you may pick, only where they fit the evidence:
 - clicks_against_views: far more clicks than the video's views could produce.
 - recording_one_take: a recording that is cut or stitched together.
 - recording_right_subject: a recording that shows something other than the poster's product.
+
+When the poster lists things they already know (known bugs, known mistakes, their own shops), put each one in doesNotCount, copied from the sentence, one per entry. Then say in howChecked that a find matching that list earns nothing, and that each find is paid once: the first worker to show it is paid, and nobody is paid for the same find again.
+
+A worker hands in once per job: one recording, one photo, one file or one list of links, which may show several finds. Never write that a worker uploads one recording for each find. An uploaded recording or photo is looked at as pictures with no sound, so never ask a worker to say something out loud in it, and never write a rule that depends on sound for an uploaded file.
 
 Pay rules:
 - per_unit: so much for every batch of units (for example 200 cents for every 1000 views, or 500 cents for every 1 sale).
@@ -175,9 +180,6 @@ export function buildCard(draft: CardDraft, now: Date = new Date()): JobCard {
     const honest = `This is AI's opinion, not a measurement. You have ${settings.objectionWindowDays} days to object. Silence means the AI's answer stands.`;
     if (!howChecked.some((s) => /opinion/i.test(s))) howChecked.push(honest);
   }
-  if (evidence.includes("live_site") && !howChecked.some((s) => /recording/i.test(s))) {
-    howChecked.push("Dibs cannot visit a live site yet, so this is checked from the worker's recording.");
-  }
 
   const target = draft.targetUnit !== "none" && whole(draft.targetCount) > 0 ? { unit: draft.targetUnit, count: whole(draft.targetCount) } : null;
 
@@ -204,6 +206,7 @@ export function buildCard(draft: CardDraft, now: Date = new Date()): JobCard {
       mustShow: cleanRules(draft.mustShow),
       cheatTests: [...new Set(draft.cheatTests)],
       machineCheckable,
+      doesNotCount: [...new Set((draft.doesNotCount ?? []).map((line) => line.trim()).filter(Boolean))],
     },
   };
 }

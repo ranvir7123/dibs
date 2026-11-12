@@ -3,37 +3,63 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useRef, useState } from "react";
 import { handInLink, type FormState } from "@/app/(site)/actions";
+import { HAND_IN_ENDINGS, MAX_PHOTO_OR_PDF_BYTES, maxBytesFor } from "./handin";
 import { Icon } from "./Icon";
 import { Notice } from "./States";
 
 const start: FormState = { error: null };
 
-/** Handing in a link, for jobs checked from a public page such as a posted video. */
-export function HandInLinkForm({ claimId, current }: { claimId: string; current: string | null }) {
+/**
+ * Handing in a link, for jobs checked from a public page such as a posted video.
+ * `several` is for jobs where Dibs opens each page itself: the box then takes up to 10 links, one per line.
+ */
+export function HandInLinkForm({ claimId, current, several = false }: { claimId: string; current: string | null; several?: boolean }) {
   const [state, action, pending] = useActionState(handInLink, start);
   return (
     <form action={action} className="form">
       <input type="hidden" name="claimId" value={claimId} />
-      <div className="field">
-        <label htmlFor="hand-url">The link to what you posted</label>
-        <input
-          id="hand-url"
-          name="url"
-          type="url"
-          inputMode="url"
-          className="input"
-          required
-          placeholder="https://"
-          defaultValue={state.typed ?? current ?? ""}
-          key={state.typed ?? "first"}
-          autoComplete="off"
-        />
-        <small>It has to be public, so the checker can open it.</small>
-      </div>
+      {several ? (
+        <div className="field">
+          <label htmlFor="hand-url">The links to the pages</label>
+          <textarea
+            id="hand-url"
+            name="url"
+            inputMode="url"
+            className="input"
+            // The same box as a single link, made tall enough for a list.
+            style={{ height: "auto", minHeight: 144, padding: "12px 16px", lineHeight: "24px", resize: "vertical" }}
+            rows={5}
+            required
+            placeholder="https://"
+            defaultValue={state.typed ?? current ?? ""}
+            key={state.typed ?? "first"}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <small>Paste the links, one per line. Dibs opens each page itself.</small>
+        </div>
+      ) : (
+        <div className="field">
+          <label htmlFor="hand-url">The link to what you posted</label>
+          <input
+            id="hand-url"
+            name="url"
+            type="url"
+            inputMode="url"
+            className="input"
+            required
+            placeholder="https://"
+            defaultValue={state.typed ?? current ?? ""}
+            key={state.typed ?? "first"}
+            autoComplete="off"
+          />
+          <small>It has to be public, so the checker can open it.</small>
+        </div>
+      )}
       {state.error ? <Notice kind={state.notReady ? "warn" : "stop"}>{state.error}</Notice> : null}
       <button className="btn main-b" disabled={pending}>
         <Icon name="link" />
-        {pending ? "Handing in…" : current ? "Replace the link" : "Hand in the link"}
+        {pending ? "Handing in…" : several ? (current ? "Replace the links" : "Hand in the links") : current ? "Replace the link" : "Hand in the link"}
       </button>
     </form>
   );
@@ -41,7 +67,7 @@ export function HandInLinkForm({ claimId, current }: { claimId: string; current:
 
 const megabytes = (bytes: number) => `${(bytes / 1_000_000).toFixed(bytes < 10_000_000 ? 1 : 0)} MB`;
 
-/** Handing in a file, for jobs where AI watches a recording or reads a document. */
+/** Handing in a file, for jobs where AI looks at a recording or a photo, or reads a document. */
 export function HandInFileForm({ claimId, hasFile, maxBytes }: { claimId: string; hasFile: boolean; maxBytes: number }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -51,9 +77,14 @@ export function HandInFileForm({ claimId, hasFile, maxBytes }: { claimId: string
 
   function choose(chosen: File | null) {
     setProblem(null);
-    if (chosen && chosen.size > maxBytes) {
+    // A photo or a PDF has a smaller limit than a recording.
+    const limit = chosen ? Math.min(maxBytes, maxBytesFor(chosen.name)) : maxBytes;
+    if (chosen && chosen.size > limit) {
       setFile(null);
-      setProblem({ text: `That file is ${megabytes(chosen.size)}. The most Dibs can take is ${megabytes(maxBytes)}.`, notReady: false });
+      setProblem({
+        text: `That file is ${megabytes(chosen.size)}. The most Dibs can take ${limit < maxBytes ? "for a photo or a PDF " : ""}is ${megabytes(limit)}.`,
+        notReady: false,
+      });
       return;
     }
     setFile(chosen);
@@ -104,8 +135,8 @@ export function HandInFileForm({ claimId, hasFile, maxBytes }: { claimId: string
       >
         <Icon name={file ? "file" : "upload"} />
         <b>{file ? file.name : "Choose your file, or drop it here"}</b>
-        <small>{file ? megabytes(file.size) : `A recording or a document, up to ${megabytes(maxBytes)}`}</small>
-        <input ref={input} type="file" className="hide" onChange={(event) => choose(event.target.files?.[0] ?? null)} />
+        <small>{file ? megabytes(file.size) : `A recording up to ${megabytes(maxBytes)}, or a photo, PDF or text file up to ${megabytes(MAX_PHOTO_OR_PDF_BYTES)}`}</small>
+        <input ref={input} type="file" className="hide" accept={HAND_IN_ENDINGS} onChange={(event) => choose(event.target.files?.[0] ?? null)} />
       </label>
       {problem ? <Notice kind={problem.notReady ? "warn" : "stop"}>{problem.text}</Notice> : null}
       <button type="button" className="btn main-b" disabled={!file || sent !== null} onClick={send}>

@@ -1,6 +1,6 @@
 import { getMyWork, handIn, storeHandInFile } from "@/contract";
 import { isNotBuilt, plainError } from "@/ui/errors";
-import { MAX_HAND_IN_BYTES } from "@/ui/handin";
+import { MAX_HAND_IN_BYTES, maxBytesFor } from "@/ui/handin";
 import { getViewer } from "@/ui/viewer";
 
 export const dynamic = "force-dynamic";
@@ -36,9 +36,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cla
     // A name that cannot be read is not worth refusing the file for.
   }
 
+  // A photo or a PDF has a smaller limit than a recording: a bigger one is more than the AI can open.
+  const limit = maxBytesFor(fileName);
+  const tooBig = limit < MAX_HAND_IN_BYTES ? "That photo or PDF is too big. The most Dibs can take for a photo or a PDF is 20 MB." : "That file is too big for Dibs to take.";
+  if (declared > limit) return say(413, tooBig);
+
   try {
-    const bytes = await readUpTo(request, MAX_HAND_IN_BYTES);
-    if (bytes === null) return say(413, "That file is too big for Dibs to take.");
+    const bytes = await readUpTo(request, limit);
+    if (bytes === null) return say(413, tooBig);
     if (bytes.byteLength === 0) return say(400, "That file is empty. Please choose another.");
     const kept = await storeHandInFile({ claimId, fileName, bytes });
     await handIn({ claimId, file: kept });

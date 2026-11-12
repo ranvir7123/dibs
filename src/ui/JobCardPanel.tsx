@@ -52,6 +52,16 @@ export function JobCardPanel({ card, children }: { card: JobCard; children: Reac
           <p key={line}>{line}</p>
         ))}
       </Row>
+      {card.checker.doesNotCount?.length ? (
+        <Row icon="no" label="Does not count">
+          <p>A find that matches one of these earns nothing. Each new find is paid once.</p>
+          {card.checker.doesNotCount.map((line, i) => (
+            <p key={line}>
+              {i + 1}. {line.charAt(0).toUpperCase() + line.slice(1)}
+            </p>
+          ))}
+        </Row>
+      ) : null}
       {card.cheatTestsLine ? (
         <Row icon="shield" label="Cheat tests">
           <p>{card.cheatTestsLine}</p>

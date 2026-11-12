@@ -1,5 +1,5 @@
 /**
- * Keeps files workers upload (recordings, translations) in a folder on this
+ * Keeps files workers upload (recordings, photos, PDFs, translations) in a folder on this
  * machine, and finds them again for the checker.
  */
 import { mkdir, stat, writeFile } from "node:fs/promises";
@@ -72,12 +72,22 @@ const VIDEO_TYPES: Record<string, string> = {
   ".avi": "video/x-msvideo",
   ".m4v": "video/mp4",
 };
+const IMAGE_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+};
 const TEXT_TYPES = new Set([".txt", ".md", ".csv", ".json", ".html", ".srt"]);
 
-/** What kind of file a hand-in is, from its ending. */
-export function fileKind(file: string): { kind: "video"; mimeType: string } | { kind: "text" } | { kind: "other" } {
+/** What kind of file a hand-in is, from its ending. mimeType is the file's kind in the words programs use, such as "image/png". */
+export type FileKind = { kind: "video"; mimeType: string } | { kind: "image"; mimeType: string } | { kind: "pdf" } | { kind: "text" } | { kind: "other" };
+
+export function fileKind(file: string): FileKind {
   const ext = path.extname(file).toLowerCase();
   if (VIDEO_TYPES[ext]) return { kind: "video", mimeType: VIDEO_TYPES[ext] };
+  if (IMAGE_TYPES[ext]) return { kind: "image", mimeType: IMAGE_TYPES[ext] };
+  if (ext === ".pdf") return { kind: "pdf" };
   if (TEXT_TYPES.has(ext)) return { kind: "text" };
   return { kind: "other" };
 }

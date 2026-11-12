@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { clock } from "./format";
 import { Icon } from "./Icon";
+import { PageLinks } from "./PageLinks";
 
 export interface SeenRule {
   key: string;
@@ -11,14 +12,36 @@ export interface SeenRule {
   passed: boolean;
   /** The moment in the recording, in seconds. Null when the checker never saw it. */
   seenAtSeconds: number | null;
+  /** A short title saying why it did not count, such as "Already known: ...". Null when there is none. */
+  headline?: string | null;
 }
 
 /**
  * The recording and the rules the checker saw in it, side by side.
  * Tapping a rule moves the recording to the moment that rule was met.
- * `fileUrl` is only set when the file can be played in the browser.
+ * `fileUrl` is only set when the file can be opened in the browser.
+ * `looks` says what the file is: a recording is played, a photo is shown,
+ * and anything else (a PDF, a text file) is a plain link.
  */
-export function RecordingRules({ rules, mediaSeconds, fileUrl, title }: { rules: SeenRule[]; mediaSeconds: number | null; fileUrl: string | null; title: string }) {
+export function RecordingRules({
+  rules,
+  mediaSeconds,
+  fileUrl,
+  title,
+  looks = "video",
+  links = [],
+}: {
+  rules: SeenRule[];
+  mediaSeconds: number | null;
+  fileUrl: string | null;
+  title: string;
+  /** "pages" is a hand-in of links that Dibs opened itself: the links are listed and no times are shown. */
+  looks?: "video" | "photo" | "pdf" | "text" | "other" | "pages";
+  /** The handed-in links, for looks "pages". */
+  links?: string[];
+}) {
+  // Only a recording has moments. A photo or a document shows no times.
+  const timed = looks === "video";
   const firstSeen = rules.find((rule) => rule.seenAtSeconds !== null) ?? null;
   const [chosen, setChosen] = useState<string | null>(firstSeen?.key ?? null);
   const at = rules.find((rule) => rule.key === chosen)?.seenAtSeconds ?? null;
@@ -36,8 +59,20 @@ export function RecordingRules({ rules, mediaSeconds, fileUrl, title }: { rules:
 
   return (
     <>
+      {looks === "pages" ? (
+        <PageLinks links={links} />
+      ) : (
       <div className="clip game">
-        {fileUrl ? (
+        {fileUrl && looks === "photo" ? (
+          // A plain picture tag: the photo comes from the hand-ins folder, not from the site's own pictures.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={fileUrl} alt={`Photo handed in for ${title}`} />
+        ) : fileUrl && looks !== "video" ? (
+          <a className="mid" style={{ margin: "auto" }} href={fileUrl} target="_blank" rel="noopener noreferrer">
+            Open the file
+            <span className="hide"> handed in for {title} (opens in a new tab)</span>
+          </a>
+        ) : fileUrl ? (
           <video ref={video} src={fileUrl} controls preload="metadata" aria-label={`Recording handed in for ${title}`} />
         ) : (
           <>
@@ -58,6 +93,7 @@ export function RecordingRules({ rules, mediaSeconds, fileUrl, title }: { rules:
           </>
         )}
       </div>
+      )}
 
       <div className="rules">
         <h3>What the checker saw</h3>
@@ -67,13 +103,14 @@ export function RecordingRules({ rules, mediaSeconds, fileUrl, title }: { rules:
               <Icon name={rule.passed ? "ok" : "no"} />
               <p>
                 {rule.label}
+                {rule.headline ? <b className="why-not">{rule.headline.replace(/\.$/, "")}</b> : null}
                 <small>{rule.reason}</small>
               </p>
-              <time>{clock(rule.seenAtSeconds)}</time>
+              {timed ? <time>{clock(rule.seenAtSeconds)}</time> : null}
             </>
           );
           const seconds = rule.seenAtSeconds;
-          if (seconds === null) {
+          if (seconds === null || !timed) {
             return (
               <div key={rule.key} className={rule.passed ? "rule" : "rule no"}>
                 {inside}

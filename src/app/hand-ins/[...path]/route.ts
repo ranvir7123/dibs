@@ -6,8 +6,8 @@ import { fileKind, handInPath } from "@/checkers/files";
 export const dynamic = "force-dynamic";
 
 /**
- * Sends back a file a worker handed in (a recording or a document), so the
- * result card can play it. Answers part of the file when the browser asks for
+ * Sends back a file a worker handed in (a recording, a photo or a document), so the
+ * result card can play or show it. Answers part of the file when the browser asks for
  * a range, which is what lets a video jump to the moment a rule was met.
  *
  * Only files inside the hand-ins folder, of the kinds the checker opens, are
@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
 
   const size = info.size;
   const headers: Record<string, string> = {
-    "content-type": kind.kind === "video" ? kind.mimeType : "text/plain; charset=utf-8",
+    "content-type": kind.kind === "video" || kind.kind === "image" ? kind.mimeType : kind.kind === "pdf" ? "application/pdf" : "text/plain; charset=utf-8",
     "accept-ranges": "bytes",
     "cache-control": "private, max-age=3600",
     "x-content-type-options": "nosniff",

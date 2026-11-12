@@ -5,10 +5,12 @@
  * status "paid" (lane A does that when money goes out).
  */
 import { stat } from "node:fs/promises";
-import { and, asc, desc, eq, gte, isNotNull } from "drizzle-orm";
-import { isAiTrouble, waitingOnAiNote } from "@/ai/trouble";
+import { and, asc, desc, eq, gte, isNotNull, like, ne } from "drizzle-orm";
+import { RecordingUnreadable } from "@/ai/frames";
+import { AiCannotOpen, isAiTrouble, waitingOnAiNote } from "@/ai/trouble";
+import { storedPageLinks } from "@/contract/links";
 import { formatCents } from "@/contract/money";
-import type { Check, CheckGroup, CheckReport, JobCard, Measured, ResultStatus } from "@/contract/types";
+import type { Check, CheckGroup, CheckReport, Job, JobCard, Measured, ResultStatus } from "@/contract/types";
 import { getDb } from "@/db/client";
 import { newId } from "@/db/ids";
 import { checks, claims, jobs, people, readings, results, trackedLinks } from "@/db/schema";
@@ -17,9 +19,10 @@ import { settings } from "@/settings";
 import { clicksLookReal, viewsLookReal } from "./cheat-tests";
 import { countClicks, type ClickCounts } from "./clicks";
 import { fileKind, handInPath, reachableHandIn } from "./files";
+import { getPageReader } from "./pages";
 import { earnedFor } from "./pay";
 import { getVideoReader, NotAVideoLink, publicVideoUrl, videoIdFrom, type VideoStats } from "./video-site";
-import { giveOpinion, readHandIn, readTextFile, watchPromo, watchRecording, type RuleSeen } from "./watch";
+import { checkPages, giveOpinion, readHandIn, readTextFile, watchPromo, watchRecording, type FoundItem, type PageToCheck, type RuleSeen } from "./watch";
 
 const DAY_MS = 86_400_000;
 
@@ -64,6 +67,17 @@ const clock = (d: Date) => new Intl.DateTimeFormat("en-GB", { hour: "2-digit", m
 
 /** A hand-in that cannot be checked as it is: the result waits and the worker is told why. */
 class CannotCheck extends Error {}
+
+/** The kinds of file AI can open, said the same way wherever a file is refused. */
+const FILES_TAKEN = "a video (.mp4, .mov, .webm), a photo (.png, .jpg, .webp), a PDF (.pdf) or a plain text file (.txt, .md)";
+
+/** The short title on a find that earned nothing, saying why. */
+function refusalHeadline(item: FoundItem): string | null {
+  if (item.verdict === "known") return item.matches ? `Already known: ${item.matches}` : "Already known";
+  if (item.verdict === "already_paid") return "Already paid to another worker";
+  if (item.verdict === "not_real") return "Not a real problem";
+  return null;
+}
 
 interface Outcome {
   drafts: Draft[];
@@ -123,6 +137,7 @@ export async function runChecksAt(claimId: string, now: Date = new Date()): Prom
 
   const out: Outcome = { drafts: [], measured: {}, waiting: false, finishMet: false, summary: null, objectionEndsAt: null, clicks: null, holdPay: false, viewsAtHandIn: 0 };
   const isFile = result.handInKind === "file";
+  const opensPages = result.handInKind === "link" && evidence.includes("live_site");
   let aiChecksAllPassed: boolean | null = null; // null = this job has no AI yes-or-no checks
 
   try {
@@ -165,7 +180,25 @@ export async function runChecksAt(claimId: string, now: Date = new Date()): Prom
     } else {
       // ------------------------------------------------ measured from sources
       let stats: VideoStats | null = null;
-      const isLink = result.handInKind === "link";
+      // A job where Dibs opens each handed-in page itself has no video: its links are web pages.
+      const isLink = result.handInKind === "link" && !opensPages;
+
+      if (opensPages) {
+        // The pages are opened and read by AI once per hand-in, not on every tick.
+        const saved = kept((c) => c.group === "rule" || c.key === "in_pages" || c.key === "pages_opened");
+        if (saved.length) out.drafts.push(...saved.map(fromSaved));
+        else await checkLinks(out, { resultId: result.id, job, posterName: poster.name, links: storedPageLinks(result.handInUrl), now });
+        const rules = out.drafts.filter((d) => d.group === "rule");
+        if (card.payRule.kind === "per_rule") {
+          out.measured.rulesPassed = rules.filter((d) => d.passed).length;
+          out.measured.rulesTotal = rules.length;
+        } else if (card.payRule.kind === "per_unit" && card.payRule.unit === "item") {
+          out.measured.items = rules.filter((d) => d.passed).length;
+        }
+        const gate = out.drafts.filter((d) => d.group === "must_show" || d.group === "rule");
+        if (gate.length) aiChecksAllPassed = gate.every((d) => d.passed);
+      }
+
       if (isLink && (evidence.includes("public_page") || evidence.includes("ai_watch"))) {
         stats = await getVideoReader()(result.handInUrl ?? "");
         out.measured.views = stats.views;
@@ -190,7 +223,7 @@ export async function runChecksAt(claimId: string, now: Date = new Date()): Prom
         aiChecksAllPassed = out.drafts.every((d) => d.passed);
       }
 
-      // An uploaded file: a recording AI watches, or a text file AI reads.
+      // An uploaded file: a recording or photo AI looks at, or a text file or PDF AI reads.
       if (isFile) {
         const aiKey = (c: Check) => c.group === "rule" || c.key === "in_recording" || c.key === "recording";
         const saved = kept(aiKey);
@@ -198,7 +231,7 @@ export async function runChecksAt(claimId: string, now: Date = new Date()): Prom
           out.drafts.push(...saved.map(fromSaved));
           if (result.measured.mediaSeconds !== undefined) out.measured.mediaSeconds = result.measured.mediaSeconds;
         } else {
-          await checkFile(out, claimId, card, poster.name, result.handInFile);
+          await checkFile(out, { claimId, resultId: result.id, job, posterName: poster.name, file: result.handInFile });
         }
         const rules = out.drafts.filter((d) => d.group === "rule");
         if (card.payRule.kind === "per_rule") {
@@ -268,7 +301,7 @@ export async function runChecksAt(claimId: string, now: Date = new Date()): Prom
       }
     }
   } catch (error) {
-    if (!(error instanceof NotAVideoLink) && !(error instanceof CannotCheck) && !isNotPublic(error)) {
+    if (!(error instanceof NotAVideoLink) && !(error instanceof CannotCheck) && !(error instanceof RecordingUnreadable) && !(error instanceof AiCannotOpen) && !isNotPublic(error)) {
       // The AI could not do its part (too busy, out of allowance, timed out). Nothing is
       // decided and nothing is saved except a plain note for the worker; the tick tries again.
       if (isAiTrouble(error) && (result.status === "checking" || result.status === "waiting")) {
@@ -365,9 +398,12 @@ async function handedInWork(claimId: string, kind: string, url: string | null, f
   if (!file) throw new CannotCheck("Nothing was handed in for AI to look at.");
   ownFile(claimId, file);
   const type = fileKind(file);
-  if (type.kind === "video") return { kind: "video", video: { kind: "file", path: await reachable(file), mimeType: type.mimeType } };
+  if (type.kind === "other") throw new CannotCheck(`AI cannot open this kind of file yet. Please hand in ${FILES_TAKEN}.`);
   if (type.kind === "text") return { kind: "text", text: await readTextFile(await reachable(file)).catch(asCannotCheck) };
-  throw new CannotCheck("AI cannot open this kind of file yet. Please hand in a video (.mp4, .mov, .webm) or a plain text file (.txt, .md).");
+  const full = await found(file, type.kind === "video" ? "recording" : type.kind === "image" ? "photo" : "file");
+  if (type.kind === "video") return { kind: "video", video: { kind: "file", path: full, mimeType: type.mimeType } };
+  if (type.kind === "image") return { kind: "photo", path: full, mimeType: type.mimeType };
+  return { kind: "pdf", path: full };
 }
 
 /** A worker may only hand in a file that was uploaded for their own claim. */
@@ -385,37 +421,123 @@ function asCannotCheck(error: unknown): never {
   throw new CannotCheck(error instanceof Error ? error.message : String(error));
 }
 
-/** A handed-in file for a measured job: AI watches a recording, or reads a text file, against the rules. */
-async function checkFile(out: Outcome, claimId: string, card: JobCard, posterName: string, file: string | null): Promise<void> {
+/** The file's path on this machine, or a plain refusal when it is not there. */
+async function found(file: string, word: "recording" | "photo" | "file"): Promise<string> {
+  const full = await reachable(file);
+  if (!(await stat(full).catch(() => null))) throw new CannotCheck(`The handed-in ${word} could not be found. Please upload it again.`);
+  return full;
+}
+
+/**
+ * Finds on this job that were already counted for OTHER workers, as short
+ * descriptions. Each find is paid once, so the AI is told about them. A
+ * blocked result earned nothing, so its finds are left out.
+ */
+async function findsAlreadyPaid(jobId: string, resultId: string): Promise<string[]> {
+  const db = await getDb();
+  const rows = await db
+    .select({ label: checks.label, reason: checks.reason })
+    .from(checks)
+    .innerJoin(results, eq(checks.resultId, results.id))
+    .where(and(eq(results.jobId, jobId), ne(results.id, resultId), ne(results.status, "blocked"), eq(checks.passed, true), like(checks.key, "item:%")))
+    .orderBy(asc(checks.ranAt), asc(checks.position));
+  return rows.map((row) => (row.reason ? `${row.label}: ${row.reason}` : row.label));
+}
+
+/**
+ * A handed-in file for a measured job. AI looks at a recording or a photo, or
+ * reads a text file or a PDF, against the rules.
+ */
+async function checkFile(out: Outcome, input: { claimId: string; resultId: string; job: Job; posterName: string; file: string | null }): Promise<void> {
+  const { claimId, job, posterName, file } = input;
+  const card = job.card;
   if (!file) throw new CannotCheck("Nothing was handed in for AI to look at.");
   ownFile(claimId, file);
   const type = fileKind(file);
-  if (type.kind === "other") throw new CannotCheck("AI cannot open this kind of file yet. Please hand in a video (.mp4, .mov, .webm) or a plain text file (.txt, .md).");
-  const full = await reachable(file);
+  if (type.kind === "other") throw new CannotCheck(`AI cannot open this kind of file yet. Please hand in ${FILES_TAKEN}.`);
 
-  if (type.kind === "text") {
-    const read = await readHandIn({ text: await readTextFile(full).catch(asCannotCheck), card, posterName });
+  if (type.kind === "text" || type.kind === "pdf") {
+    const work = type.kind === "pdf" ? ({ kind: "pdf", path: await found(file, "file") } as const) : ({ kind: "text", text: await readTextFile(await reachable(file)).catch(asCannotCheck) } as const);
+    const read = await readHandIn({ work, card, posterName });
     if (read.mustShow.length) out.drafts.push(groupedCheck("in_recording", "In the file", read.mustShow));
     for (const r of read.rules) out.drafts.push(draft(`rule:${r.id}`, "rule", r.label, r.met ? 1 : 0, 1, r.reason));
     return;
   }
 
-  if (!(await stat(full).catch(() => null))) throw new CannotCheck("The handed-in recording could not be found. Please upload it again.");
-  const seen = await watchRecording({ video: { kind: "file", path: full, mimeType: type.mimeType }, card, posterName });
+  const isPhoto = type.kind === "image";
+  const word = isPhoto ? "photo" : "recording";
+  const full = await found(file, word);
+  const countsItems = card.payRule.kind === "per_unit" && card.payRule.unit === "item";
+  const seen = await watchRecording({
+    video: isPhoto ? { kind: "photo", path: full, mimeType: type.mimeType } : { kind: "file", path: full, mimeType: type.mimeType },
+    card,
+    posterName,
+    sentence: job.sentence,
+    alreadyPaid: countsItems ? await findsAlreadyPaid(job.id, input.resultId) : [],
+  });
   if (seen.mediaSeconds !== null) out.measured.mediaSeconds = seen.mediaSeconds;
-  if (seen.mustShow.length) out.drafts.push(groupedCheck("in_recording", "In the recording", seen.mustShow));
+  if (seen.mustShow.length) out.drafts.push(groupedCheck("in_recording", `In the ${word}`, seen.mustShow));
   for (const r of seen.rules) out.drafts.push(draft(`rule:${r.id}`, "rule", r.label, r.met ? 1 : 0, 1, r.reason, { seenAtSeconds: r.seenAtSeconds }));
-  seen.items.forEach((item, i) => out.drafts.push(draft(`item:${i + 1}`, "rule", item.label, 1, 1, item.reason, { seenAtSeconds: item.seenAtSeconds })));
+  // Each find is its own line. Only a new find counts towards pay; a refused one says why and blocks nothing.
+  seen.items.forEach((item, i) =>
+    out.drafts.push(draft(`item:${i + 1}`, "rule", item.label, item.verdict === "new" ? 1 : 0, 1, item.reason, { seenAtSeconds: item.seenAtSeconds, headline: refusalHeadline(item) })),
+  );
 
   const parts = [seen.oneTake, seen.rightSubject].filter((p): p is { ok: boolean; reason: string } => p !== null);
   if (parts.length) {
     const bad = parts.filter((p) => !p.ok);
     out.drafts.push(
-      draft("recording", "cheat", "The recording is real", parts.length - bad.length, parts.length, (bad.length ? bad : parts).map((p) => p.reason).join(" "), {
-        headline: bad.length ? "The recording did not pass" : null,
+      draft("recording", "cheat", `The ${word} is real`, parts.length - bad.length, parts.length, (bad.length ? bad : parts).map((p) => p.reason).join(" "), {
+        headline: bad.length ? `The ${word} did not pass` : null,
       }),
     );
   }
+}
+
+/** The short title on a handed-in page that earned nothing, saying why. */
+function pageRefusalHeadline(item: FoundItem): string | null {
+  return item.verdict === "not_real" ? "Does not match" : refusalHeadline(item);
+}
+
+/**
+ * Links handed in for a job where Dibs opens each page itself. Every page is
+ * fetched by Dibs, then AI compares its words with what the poster asked for.
+ * A page that cannot be opened is refused by itself and does not stop the others.
+ */
+async function checkLinks(out: Outcome, input: { resultId: string; job: Job; posterName: string; links: string[]; now: Date }): Promise<void> {
+  const { job, links, now } = input;
+  const card = job.card;
+  if (links.length === 0) throw new CannotCheck("No link was handed in. Please paste the links to the pages.");
+
+  const read = await Promise.all(links.map((url) => getPageReader()(url).then((page) => ({ page }), (error: unknown) => ({ url, error: error instanceof Error ? error.message : "Dibs could not open this page." }))));
+  const landed: string[] = [];
+  const pages: PageToCheck[] = read.map((one) => {
+    if ("error" in one) return one;
+    // Two links that lead to the very same page are one page, so only the first can count.
+    const before = landed.indexOf(one.page.finalUrl);
+    landed.push(one.page.finalUrl);
+    if (before >= 0) return { url: one.page.url, error: `This link leads to the same page as link ${before + 1}, so it is counted once.` };
+    return { url: one.page.url, title: one.page.title, text: one.page.text, cut: one.page.cut };
+  });
+  const opened = read.filter((one) => !("error" in one)).length;
+
+  const countsItems = card.payRule.kind === "per_unit" && card.payRule.unit === "item";
+  const seen = await checkPages({
+    pages,
+    card,
+    posterName: input.posterName,
+    sentence: job.sentence,
+    alreadyPaid: countsItems ? await findsAlreadyPaid(job.id, input.resultId) : [],
+  });
+  if (seen.mustShow.length) out.drafts.push(groupedCheck("in_pages", "On the pages", seen.mustShow));
+  for (const r of seen.rules) out.drafts.push(draft(`rule:${r.id}`, "rule", r.label, r.met ? 1 : 0, 1, r.reason));
+  // Each page is its own line. Only a page that matches counts towards pay; a refused one says why and blocks nothing.
+  seen.items.forEach((item, i) => out.drafts.push(draft(`item:${i + 1}`, "rule", item.label, item.verdict === "new" ? 1 : 0, 1, item.reason, { headline: pageRefusalHeadline(item) })));
+  out.drafts.push(
+    draft("pages_opened", "cheat", "Dibs opened the pages itself", opened > 0 ? 1 : 0, 1, `Opened ${opened} of ${links.length} page${links.length === 1 ? "" : "s"} at ${clock(now)}. No screenshots were used.`, {
+      headline: opened > 0 ? null : "No page could be opened",
+    }),
+  );
 }
 
 function summarise(card: JobCard, out: Outcome, blocked: boolean, failed: Draft[], earned: number): string {
@@ -426,15 +548,29 @@ function summarise(card: JobCard, out: Outcome, blocked: boolean, failed: Draft[
   if (card.payRule.kind === "per_rule" && out.measured.rulesTotal) {
     return `${out.measured.rulesPassed} of ${out.measured.rulesTotal} rules passed, so ${formatCents(earned)} was earned without anyone approving it.`;
   }
+  if (card.payRule.kind === "per_unit" && card.payRule.unit === "item") {
+    const finds = out.drafts.filter((d) => d.key.startsWith("item:"));
+    const counted = finds.filter((d) => d.passed).length;
+    // A job where Dibs opens the pages itself counts pages; the others count finds.
+    const word = out.drafts.some((d) => d.key === "pages_opened") ? "page" : "find";
+    if (finds.length && counted === 0) {
+      return earned > 0
+        ? `None of the ${word}s in this hand-in counted. The ${formatCents(earned)} earned before stays earned.`
+        : `None of the ${word}s counted, so nothing was earned. The held money was not touched.`;
+    }
+    if (finds.length) return `${counted} of ${finds.length} ${word}${finds.length === 1 ? "" : "s"} counted. ${formatCents(earned)} earned, with nobody approving it.`;
+  }
   if (earned > 0) return `Everything passed. ${formatCents(earned)} earned so far, with nobody approving it.`;
   return "The checks passed. Nothing has been earned yet.";
 }
 
 function footerFor(isFile: boolean, out: Outcome, failed: Draft[]): { label: string | null; note: string | null; ok: boolean | null } {
+  const pagesOpened = out.drafts.find((d) => d.key === "pages_opened");
+  if (pagesOpened) return { label: pagesOpened.label, note: pagesOpened.reason, ok: pagesOpened.passed };
   if (isFile) {
     const recording = out.drafts.find((d) => d.key === "recording");
     if (!recording) return { label: null, note: null, ok: null };
-    return { label: "Recording check", note: recording.reason, ok: recording.passed };
+    return { label: recording.label.includes("photo") ? "Photo check" : "Recording check", note: recording.reason, ok: recording.passed };
   }
   const cheats = out.drafts.filter((d) => d.group === "cheat");
   if (cheats.length === 0) return { label: null, note: null, ok: null };

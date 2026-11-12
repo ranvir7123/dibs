@@ -40,9 +40,9 @@ export type EvidenceKind =
   | "public_page" // a public page we can read, such as a video's view count
   | "tracked_link" // a link Dibs owns, counting clicks from different real visitors
   | "paypal_sale" // a sale seen by PayPal that carries the worker's code
-  | "ai_watch" // a video or recording that AI watches
-  | "ai_read" // a file that AI reads
-  | "live_site" // a live website AI visits (not in the first build)
+  | "ai_watch" // a video, recording or photo that AI looks at
+  | "ai_read" // a text file or PDF that AI reads
+  | "live_site" // a public web page Dibs opens itself and reads; the worker hands in links
   | "ai_opinion"; // nothing a machine can measure: AI gives its opinion and the poster may object
 
 /** What the worker gives Dibs when they hand in. */
@@ -106,6 +106,11 @@ export interface CheckerSpec {
   cheatTests: CheatTestKind[];
   /** False when no machine can measure the result: AI gives an opinion and the poster has a few days to object. */
   machineCheckable: boolean;
+  /**
+   * Things the business already knows or does not want, in its own words. A find that matches one earns nothing.
+   * Missing on cards saved before this list existed; treat missing as an empty list.
+   */
+  doesNotCount?: string[];
 }
 
 /** What AI writes from the poster's one sentence. The poster reads it before locking any money. */

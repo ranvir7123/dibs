@@ -22,6 +22,7 @@ const EXAMPLE_VIEWS: CardDraft = {
     { id: "Names Brand", label: "Names Kettle & Clove", detail: "The brand's name is said or shown." },
     { id: "shows_link", label: "Shows your link", detail: "The worker's link is on screen." },
   ],
+  doesNotCount: [],
   cheatTests: ["view_jump", "views_without_likes", "repeat_visitor", "click_burst"],
   howChecked: ["Views are read from the video site's own count."],
   checkedByLine: "The video site's own view count",
@@ -107,6 +108,12 @@ describe("building a job card from AI's draft (EXAMPLE drafts, not real AI outpu
     expect(() => buildCard({ ...EXAMPLE_VIEWS, payKind: "per_rule" }, NOW)).toThrow("what each person should do");
   });
 
+  it("copies the poster's does-not-count list, tidied, and gives an empty list when there is none", () => {
+    expect(buildCard(EXAMPLE_VIEWS, NOW).checker.doesNotCount).toEqual([]);
+    const card = buildCard({ ...EXAMPLE_VIEWS, doesNotCount: ["  The coupon box accepts expired codes ", "The coupon box accepts expired codes", "", "The page is slow on old phones"] }, NOW);
+    expect(card.checker.doesNotCount).toEqual(["The coupon box accepts expired codes", "The page is slow on old phones"]);
+  });
+
   it("keeps a one-off amount inside the budget", () => {
     expect(buildCard({ ...EXAMPLE_TRANSLATION, onceCents: 9900 }, NOW).payRule).toEqual({ kind: "once", cents: 1800 });
   });
@@ -127,6 +134,9 @@ describe("writeJobCard", () => {
       watch: async () => {
         throw new Error("not used");
       },
+      look: async () => {
+        throw new Error("not used");
+      },
     });
     const card = await writeJobCard({ sentence: "I want 10,000 real views. Up to $50.", posterName: "Kettle & Clove" });
     expect(asked).toContain("Kettle & Clove");
@@ -135,7 +145,7 @@ describe("writeJobCard", () => {
     expect(job.status).toBe("draft");
     expect(job.budgetCents).toBe(5000);
 
-    useAi({ text: async () => EXAMPLE_TRANSLATION as never, watch: async () => ({}) as never });
+    useAi({ text: async () => EXAMPLE_TRANSLATION as never, watch: async () => ({}) as never, look: async () => ({}) as never });
     const opinionCard = await writeJobCard({ sentence: "Translate our menu into Hindi. $18.", posterName: "Kettle & Clove" });
     expect((await createJob({ posterId: "per_kettle", sentence: "Translate our menu into Hindi. $18.", card: opinionCard })).status).toBe("draft");
   });
@@ -143,7 +153,7 @@ describe("writeJobCard", () => {
   it("tells the poster in plain words when the AI is out of allowance, busy or missing, in a form the screen shows", async () => {
     // (Named swapAi here because the style checker takes any "use..." call inside a helper for a React hook.)
     const swapAi = useAi;
-    const failing = (error: Error) => swapAi({ text: async () => Promise.reject(error), watch: async () => ({}) as never });
+    const failing = (error: Error) => swapAi({ text: async () => Promise.reject(error), watch: async () => ({}) as never, look: async () => ({}) as never });
 
     failing(new AiTrouble("The AI has used up its allowance for now (3 models tried). Please try again later."));
     const limit = await writeJobCard({ sentence: "Get my video views. Up to $50.", posterName: "Kettle & Clove" }).then(

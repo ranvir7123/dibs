@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getMyWork } from "@/contract";
+import { dibsOpensPages } from "@/contract/links";
 import { dayMonth, daysLeftLabel, daysUntil, longDay, sentence } from "@/ui/format";
 import { MAX_HAND_IN_BYTES } from "@/ui/handin";
 import { CopyLink, HandInFileForm, HandInLinkForm } from "@/ui/HandInForm";
@@ -85,6 +86,13 @@ export default async function HandInPage({ params }: { params: Promise<{ claimId
                   Share your link. Each sale shows up on <Link href="/work" className="textlink">My work</Link> by itself.
                 </Notice>
               </>
+            ) : dibsOpensPages(spec) ? (
+              <>
+                <p className="sub">
+                  {card ? `You handed in on ${dayMonth(card.result.handedInAt)}. A new list of links replaces it.` : "Paste the links to the pages. The checks start straight away."}
+                </p>
+                <HandInLinkForm claimId={claim.id} current={card?.result.handInUrl ?? null} several />
+              </>
             ) : spec.handIn === "link" ? (
               <>
                 <p className="sub">
@@ -95,7 +103,7 @@ export default async function HandInPage({ params }: { params: Promise<{ claimId
             ) : (
               <>
                 <p className="sub">
-                  {card ? `You handed in on ${dayMonth(card.result.handedInAt)}. A new file replaces it.` : "Send your recording or document. The checks start straight away."}
+                  {card ? `You handed in on ${dayMonth(card.result.handedInAt)}. A new file replaces it.` : "Send your recording, photo or document. The checks start straight away."}
                 </p>
                 <HandInFileForm claimId={claim.id} hasFile={Boolean(card)} maxBytes={MAX_HAND_IN_BYTES} />
               </>
@@ -133,6 +141,15 @@ export default async function HandInPage({ params }: { params: Promise<{ claimId
                 </p>
               </li>
             ))}
+            {spec.doesNotCount?.length ? (
+              <li>
+                <Icon name="no" />
+                <p>
+                  Does not count
+                  <small>{spec.doesNotCount.join(". ")}. A find that matches one of these earns nothing.</small>
+                </p>
+              </li>
+            ) : null}
             {job.card.cheatTestsLine ? (
               <li>
                 <Icon name="shield" />

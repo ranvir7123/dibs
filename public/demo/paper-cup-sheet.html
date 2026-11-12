@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paperfinch Kits: fold the paper cup</title>
+<style>
+  :root { --ink: #16181d; --panel: #1e2128; --line: #2c313b; --text: #eceef2; --soft: #a3a9b6; --accent: #e8b04a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ink); color: var(--text); font: 17px/1.5 "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 20px 56px; }
+  .brand { color: var(--accent); font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; margin: 0 0 8px; }
+  h1 { font-size: 32px; line-height: 1.2; margin: 0 0 8px; font-weight: 650; }
+  .lead { color: var(--soft); margin: 0 0 28px; }
+  ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  li { display: grid; grid-template-columns: 52px 1fr; gap: 16px; align-items: start; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .num { width: 52px; height: 52px; border-radius: 50%; border: 1.5px solid var(--accent); color: var(--accent); display: grid; place-items: center; font-size: 22px; font-weight: 650; }
+  h2 { font-size: 19px; margin: 2px 0 4px; font-weight: 600; }
+  p { margin: 0; color: var(--soft); }
+  .note { margin-top: 24px; color: var(--soft); font-size: 14px; border-top: 1px solid var(--line); padding-top: 16px; }
+  @media (max-width: 480px) { h1 { font-size: 26px; } li { grid-template-columns: 44px 1fr; gap: 12px; padding: 16px; } .num { width: 44px; height: 44px; font-size: 19px; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="brand">Paperfinch Kits</p>
+  <h1>Fold the paper cup</h1>
+  <p class="lead">Instruction sheet. You need one square of paper. Five steps.</p>
+  <ol>
+    <li><div class="num">1</div><div><h2>Make a triangle</h2><p>Lay the square flat. Fold one corner up to the opposite corner, so the square becomes a triangle. Keep the long folded edge nearest to you.</p></div></li>
+    <li><div class="num">2</div><div><h2>Fold the left corner across</h2><p>Take the left corner and fold it over to touch the middle of the right edge. The top of this flap should lie level.</p></div></li>
+    <li><div class="num">3</div><div><h2>Fold the right corner across</h2><p>Take the right corner and fold it over to touch the left side, on top of the first flap.</p></div></li>
+    <li><div class="num">4</div><div><h2>Fold the top flaps down</h2><p>At the top there are two loose points. Fold the front one down over the front, then turn the paper over and fold the other one down over the back.</p></div></li>
+    <li><div class="num">5</div><div><h2>Open the cup and stand it up</h2><p>Push the top edges apart to open the cup. Stand it on the table and drop a coin or a pen cap in it to show it holds.</p></div></li>
+  </ol>
+  <p class="note">Demo page with a made-up brand, for a Dibs job.</p>
+</main>
+</body>
+</html>

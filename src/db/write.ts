@@ -4,6 +4,7 @@
  * money is lane A's (src/money) and checking is lane B's (src/checkers).
  */
 import { and, eq } from "drizzle-orm";
+import { dibsOpensPages, pageLinksFrom } from "../contract/links";
 import { isCents } from "../contract/money";
 import type { Claim, Job, JobCard, Person, Result, TrackedLink } from "../contract/types";
 import { settings } from "../settings";
@@ -192,10 +193,13 @@ export async function handIn(input: { claimId: string; url?: string; file?: stri
   if (job.endsAt.getTime() <= Date.now()) throw new Error("This job has ended, so nothing more can be handed in.");
 
   const kind = job.card.checker.handIn;
-  const url = input.url?.trim() || null;
+  let url = input.url?.trim() || null;
   const file = input.file?.trim() || null;
   if (kind === "none") throw new Error("This job needs nothing handed in. It is measured by itself.");
-  if (kind === "link" && (!url || !isWebLink(url))) {
+  if (dibsOpensPages(job.card.checker)) {
+    // Dibs opens each page itself, so this hand-in may hold several links. They are kept one per line.
+    url = pageLinksFrom(url ?? "").join("\n");
+  } else if (kind === "link" && (!url || !isWebLink(url))) {
     throw new Error("This job is checked from a link. Please paste the full link, starting with https://");
   }
   if (kind === "file" && !file) throw new Error("This job is checked from a file. Please upload the file.");

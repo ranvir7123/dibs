@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Larkspur Tea Co.</title>
+<style>
+  :root {
+    --bg: #0e0f11;
+    --panel: #17181b;
+    --panel-2: #1d1f23;
+    --line: #2a2c31;
+    --text: #ece9e2;
+    --muted: #9a978f;
+    --accent: #e8b04a;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  /* Every size below is in rem, and 1rem grows with the window.
+     So the page looks the same at any 16:9 size, and stays readable
+     when a recording is shrunk. At 1280 x 720, 1rem is 16px. */
+  html { font-size: clamp(12px, min(1.25vw, 2.2222vh), 40px); }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+  .page {
+    max-width: 74rem;
+    margin: 0 auto;
+    padding: 1.5rem 1.5rem 1.5rem;
+  }
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding-bottom: 1.125rem;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 1.25rem;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: 2.25rem;
+    line-height: 1;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+  .brand p {
+    margin: 0.5rem 0 0;
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .demo-note {
+    font-size: 1.125rem;
+    line-height: 1;
+    font-weight: 600;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 0.6rem 1.1rem 0.65rem;
+    white-space: nowrap;
+  }
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 27rem;
+    gap: 1.25rem;
+    align-items: start;
+  }
+  .products {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    padding: 1.125rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+  .card-top { display: flex; gap: 0.875rem; align-items: center; }
+  .tin {
+    flex: none;
+    width: 3.5rem;
+    height: 4rem;
+    border-radius: 0.5rem;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-top: 0.375rem solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.375rem;
+    font-weight: 650;
+    color: var(--muted);
+  }
+  .card h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    line-height: 1.15;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .card .about { margin: 0.25rem 0 0; font-size: 1rem; line-height: 1.25; color: var(--muted); }
+  .card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .price {
+    font-size: 1.6rem;
+    line-height: 1;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+  .stepper {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 0.625rem;
+    overflow: hidden;
+    background: var(--panel-2);
+  }
+  .stepper button {
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .stepper button:hover:not(:disabled) { background: #26282e; }
+  .stepper button:disabled { color: #55575d; cursor: default; }
+  .stepper .qty {
+    width: 2.75rem;
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .cart {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    padding: 1.125rem 1.25rem 1.25rem;
+  }
+  .cart-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .cart h2 { margin: 0; font-size: 1.375rem; line-height: 1.1; font-weight: 600; }
+  .lines { list-style: none; margin: 0; padding: 0; }
+  .lines li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0;
+    border-top: 1px solid var(--line);
+  }
+  .lines .name { font-size: 1rem; color: var(--muted); overflow-wrap: anywhere; }
+  .lines .sum {
+    font-size: 1.2rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .empty { padding: 0.7rem 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 1.0625rem; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.55rem 0;
+    border-top: 1px solid var(--line);
+    font-size: 1.2rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .amount { font-weight: 600; white-space: nowrap; }
+  .row.total {
+    border-top: 2px solid var(--accent);
+    padding-top: 0.8rem;
+    padding-bottom: 0.2rem;
+    font-size: 1.875rem;
+    line-height: 1;
+    font-weight: 700;
+  }
+  .row.total .amount { color: var(--accent); font-weight: 700; }
+  .link {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-size: 1rem;
+    color: var(--muted);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .link:hover { color: var(--text); }
+  .row .link { margin-left: 0.5rem; }
+  .code { margin-top: 1rem; }
+  .code label { display: block; font-size: 1rem; color: var(--muted); margin-bottom: 0.375rem; }
+  .code-row { display: flex; gap: 0.5rem; }
+  .code input {
+    flex: 1;
+    min-width: 0;
+    height: 2.75rem;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 0.625rem;
+    color: var(--text);
+    font: inherit;
+    font-size: 1.125rem;
+    padding: 0 0.75rem;
+    text-transform: uppercase;
+  }
+  .code input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn {
+    height: 2.75rem;
+    padding: 0 1.125rem;
+    border-radius: 0.625rem;
+    border: 0;
+    background: var(--accent);
+    color: #17130a;
+    font: inherit;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .msg { min-height: 1.35rem; margin-top: 0.5rem; font-size: 1rem; line-height: 1.35; color: var(--muted); }
+  .msg.good { color: var(--accent); }
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; }
+    header { flex-direction: column; align-items: flex-start; }
+  }
+  @media (max-width: 520px) {
+    .products { grid-template-columns: 1fr; }
+    .demo-note { white-space: normal; line-height: 1.2; border-radius: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="brand">
+      <h1>Larkspur Tea Co.</h1>
+      <p>Loose leaf tea in tins</p>
+    </div>
+    <div class="demo-note">Demo shop. Nothing is really sold.</div>
+  </header>
+
+  <main>
+    <section class="products" id="products" aria-label="Products"></section>
+
+    <aside class="cart" aria-label="Cart">
+      <div class="cart-head">
+        <h2>Your cart</h2>
+        <button class="link" id="emptyCart" type="button">Empty cart</button>
+      </div>
+      <ul class="lines" id="lines"></ul>
+      <div class="empty" id="empty">Your cart is empty.</div>
+
+      <div class="row"><span>Subtotal</span><span class="amount" id="subtotal">$0.00</span></div>
+      <div class="row" id="discountRow" hidden>
+        <span>Discount <span id="discountLabel"></span><button class="link" id="removeCode" type="button">Remove</button></span>
+        <span class="amount" id="discount">-$0.00</span>
+      </div>
+      <div class="row total"><span>Total</span><span class="amount" id="total">$0.00</span></div>
+
+      <form class="code" id="codeForm" autocomplete="off">
+        <label for="codeInput">Discount code</label>
+        <div class="code-row">
+          <input id="codeInput" type="text" maxlength="12" spellcheck="false">
+          <button class="btn" type="submit">Apply</button>
+        </div>
+        <div class="msg" id="codeMsg">Code TEA10 gives 10% off.</div>
+      </form>
+    </aside>
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* All money is kept in cents (whole numbers) so sums are exact. */
+  var PRODUCTS = [
+    { id: "assam",     name: "Morning Assam",  about: "Strong black tea. 50 g tin.", cents: 600 },
+    { id: "jasmine",   name: "Jasmine Pearl",  about: "Scented green tea. 50 g tin.", cents: 850 },
+    { id: "lapsang",   name: "Smoky Lapsang",  about: "Smoked black tea. 50 g tin.", cents: 720 },
+    { id: "chamomile", name: "Chamomile Calm", about: "Calm flower tea. 40 g tin.", cents: 500 }
+  ];
+  var CODES = { TEA10: 10 };     // code -> percent off
+  var MAX_QTY = 9;
+  var STORE_KEY = "larkspur-tea-cart-v1";
+
+  function priceOf(id) {
+    for (var i = 0; i < PRODUCTS.length; i++) if (PRODUCTS[i].id === id) return PRODUCTS[i].cents;
+    return null;
+  }
+
+  function money(cents) {
+    var sign = cents < 0 ? "-" : "";
+    var a = Math.abs(cents);
+    var whole = Math.floor(a / 100);
+    var part = a % 100;
+    return sign + "$" + whole + "." + (part < 10 ? "0" : "") + part;
+  }
+
+  /* ---------- Cart rules (no screen code in this part) ---------- */
+  function emptyCart() {
+    return { lines: [], code: null, discountCents: 0 };
+  }
+
+  function findLine(cart, id) {
+    for (var i = 0; i < cart.lines.length; i++) if (cart.lines[i].id === id) return cart.lines[i];
+    return null;
+  }
+
+  function qtyOf(cart, id) {
+    var line = findLine(cart, id);
+    return line ? line.qty : 0;
+  }
+
+  function subtotalOf(cart) {
+    var sum = 0;
+    cart.lines.forEach(function (l) { sum += l.qty * priceOf(l.id); });
+    return sum;
+  }
+
+  function changeQty(cart, id, by) {
+    var line = findLine(cart, id);
+    var now = line ? line.qty : 0;
+    var next = Math.max(0, Math.min(MAX_QTY, now + by));
+    if (next === now) return;
+    if (!line) {
+      line = { id: id, qty: 0 };
+      cart.lines.push(line);
+    }
+    line.qty = next;
+    // PLANTED BUG (cart 2): a line that reaches 0 should be taken out of the cart here.
+    // It is left in, and totalsOf() below still charges for one of it.
+    // PLANTED BUG (cart 1): the discount should be worked out again here.
+    // It is left as it was when the code was applied.
+  }
+
+  function applyCode(cart, typed) {
+    var code = String(typed || "").trim().toUpperCase();
+    if (!code) return { ok: false, message: "Type a code first." };
+    if (!CODES.hasOwnProperty(code)) return { ok: false, message: "That code is not valid." };
+    cart.code = code;
+    cart.discountCents = Math.round(subtotalOf(cart) * CODES[code] / 100);
+    return { ok: true, message: "Code " + code + " applied. " + CODES[code] + "% off." };
+  }
+
+  function removeCode(cart) {
+    cart.code = null;
+    cart.discountCents = 0;
+  }
+
+  function totalsOf(cart) {
+    var subtotal = subtotalOf(cart);
+    var extra = 0;
+    // PLANTED BUG (cart 2): each "0 x" line still adds the price of one item.
+    cart.lines.forEach(function (l) { if (l.qty === 0) extra += priceOf(l.id); });
+    return {
+      subtotal: subtotal,
+      discount: cart.discountCents,
+      total: subtotal - cart.discountCents + extra
+    };
+  }
+
+  // Turns saved text back into a cart. Anything odd in the saved text is dropped.
+  function cartFromText(text) {
+    var cart = emptyCart();
+    var raw;
+    try { raw = JSON.parse(text); } catch (e) { return cart; }
+    if (!raw || typeof raw !== "object" || !Array.isArray(raw.lines)) return cart;
+    raw.lines.forEach(function (l) {
+      if (!l || priceOf(l.id) === null || findLine(cart, l.id)) return;
+      if (typeof l.qty !== "number" || l.qty !== Math.floor(l.qty) || l.qty < 0 || l.qty > MAX_QTY) return;
+      cart.lines.push({ id: l.id, qty: l.qty });
+    });
+    if (typeof raw.code === "string" && CODES.hasOwnProperty(raw.code) &&
+        typeof raw.discountCents === "number" && raw.discountCents === Math.floor(raw.discountCents) &&
+        raw.discountCents >= 0) {
+      cart.code = raw.code;
+      cart.discountCents = raw.discountCents;
+    }
+    return cart;
+  }
+
+  // Lets a test script use the rules without a browser.
+  var api = { PRODUCTS: PRODUCTS, money: money, emptyCart: emptyCart, changeQty: changeQty,
+              applyCode: applyCode, removeCode: removeCode, totalsOf: totalsOf,
+              subtotalOf: subtotalOf, qtyOf: qtyOf, cartFromText: cartFromText };
+  if (typeof globalThis !== "undefined") globalThis.LarkspurCart = api;
+  if (typeof document === "undefined") return;
+
+  /* ---------- Screen ---------- */
+  var cart = emptyCart();
+  try { cart = cartFromText(localStorage.getItem(STORE_KEY)); } catch (e) { /* storage is off: start empty */ }
+
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(cart)); } catch (e) { /* storage is off */ }
+  }
+
+  var el = {
+    products: document.getElementById("products"),
+    lines: document.getElementById("lines"),
+    empty: document.getElementById("empty"),
+    subtotal: document.getElementById("subtotal"),
+    discountRow: document.getElementById("discountRow"),
+    discountLabel: document.getElementById("discountLabel"),
+    discount: document.getElementById("discount"),
+    total: document.getElementById("total"),
+    codeForm: document.getElementById("codeForm"),
+    codeInput: document.getElementById("codeInput"),
+    codeMsg: document.getElementById("codeMsg"),
+    removeCode: document.getElementById("removeCode"),
+    emptyCart: document.getElementById("emptyCart")
+  };
+
+  function make(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  var steppers = {};
+  PRODUCTS.forEach(function (p) {
+    var card = make("article", "card");
+    var top = make("div", "card-top");
+    top.appendChild(make("div", "tin", p.name.charAt(0)));
+    var words = make("div");
+    words.appendChild(make("h2", "", p.name));
+    words.appendChild(make("p", "about", p.about));
+    top.appendChild(words);
+    card.appendChild(top);
+
+    var bottom = make("div", "card-bottom");
+    bottom.appendChild(make("div", "price", money(p.cents)));
+    var stepper = make("div", "stepper");
+    var minus = make("button", "", "−");
+    minus.type = "button";
+    minus.setAttribute("aria-label", "One less " + p.name);
+    var qty = make("div", "qty", "0");
+    var plus = make("button", "", "+");
+    plus.type = "button";
+    plus.setAttribute("aria-label", "One more " + p.name);
+    minus.addEventListener("click", function () { changeQty(cart, p.id, -1); save(); show(); });
+    plus.addEventListener("click", function () { changeQty(cart, p.id, 1); save(); show(); });
+    stepper.appendChild(minus);
+    stepper.appendChild(qty);
+    stepper.appendChild(plus);
+    bottom.appendChild(stepper);
+    card.appendChild(bottom);
+    el.products.appendChild(card);
+    steppers[p.id] = { minus: minus, plus: plus, qty: qty };
+  });
+
+  function nameOf(id) {
+    for (var i = 0; i < PRODUCTS.length; i++) if (PRODUCTS[i].id === id) return PRODUCTS[i].name;
+    return id;
+  }
+
+  function show() {
+    PRODUCTS.forEach(function (p) {
+      var q = qtyOf(cart, p.id);
+      steppers[p.id].qty.textContent = String(q);
+      steppers[p.id].minus.disabled = q <= 0;
+      steppers[p.id].plus.disabled = q >= MAX_QTY;
+    });
+
+    el.lines.textContent = "";
+    cart.lines.forEach(function (l) {
+      var li = make("li");
+      li.appendChild(make("div", "name", nameOf(l.id)));
+      var price = priceOf(l.id);
+      li.appendChild(make("div", "sum", l.qty + " x " + money(price) + " = " + money(l.qty * price)));
+      el.lines.appendChild(li);
+    });
+    el.empty.hidden = cart.lines.length > 0;
+
+    var t = totalsOf(cart);
+    el.subtotal.textContent = money(t.subtotal);
+    el.discountRow.hidden = !cart.code;
+    if (cart.code) {
+      el.discountLabel.textContent = cart.code + " (" + CODES[cart.code] + "% off)";
+      el.discount.textContent = "-" + money(t.discount);
+    }
+    el.total.textContent = money(t.total);
+  }
+
+  function say(text, good) {
+    el.codeMsg.textContent = text || "Code TEA10 gives 10% off.";
+    el.codeMsg.className = good ? "msg good" : "msg";
+  }
+
+  el.codeForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var result = applyCode(cart, el.codeInput.value);
+    say(result.message, result.ok);
+    if (result.ok) { el.codeInput.value = ""; save(); show(); }
+  });
+  el.removeCode.addEventListener("click", function () {
+    removeCode(cart);
+    say("Code removed.", false);
+    save();
+    show();
+  });
+  el.emptyCart.addEventListener("click", function () {
+    cart = emptyCart();
+    el.codeInput.value = "";
+    say("", false);
+    save();
+    show();
+  });
+
+  if (cart.code) say("Code " + cart.code + " applied. " + CODES[cart.code] + "% off.", true);
+  show();
+})();
+</script>
+</body>
+</html>

@@ -20,6 +20,7 @@ import {
   startHold,
   writeJobCard,
 } from "@/contract";
+import { dibsOpensPages } from "@/contract/links";
 import { isNotBuilt, plainError } from "@/ui/errors";
 import { getViewer, safeNext, setViewer } from "@/ui/viewer";
 
@@ -90,12 +91,15 @@ export async function handInLink(_previous: FormState, form: FormData): Promise<
   const url = text(form, "url");
   const viewer = await getViewer();
   if (!viewer) redirect(`/you?next=${encodeURIComponent(`/work/${claimId}`)}`);
-  if (!/^https?:\/\/\S+\.\S+/i.test(url)) {
-    return { error: "Please paste the full link, starting with https://", typed: url };
-  }
   try {
     const mine = await getMyWork(viewer.id);
-    if (!mine?.items.some((item) => item.claim.id === claimId)) {
+    const item = mine?.items.find((candidate) => candidate.claim.id === claimId);
+    // A job where Dibs opens each page itself takes several links; handIn checks each one and says what is wrong.
+    const severalLinks = item ? dibsOpensPages(item.job.card.checker) : false;
+    if (!severalLinks && !/^https?:\/\/\S+\.\S+/i.test(url)) {
+      return { error: "Please paste the full link, starting with https://", typed: url };
+    }
+    if (!item) {
       return { error: "This job was taken by someone else. Switch to the person who called dibs on it.", typed: url };
     }
     await handIn({ claimId, url });

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { dibsOpensPages, storedPageLinks } from "@/contract/links";
 import { formatCents } from "@/contract/money";
 import type { Check, Job, Person, ResultCard } from "@/contract/types";
 import { Avatar } from "./Avatar";
@@ -7,8 +8,9 @@ import { Chart } from "./ChartView";
 import type { ChartPoint } from "./chart";
 import { ago, clock, count, dayMonth, firstName, plural, tone } from "./format";
 import { Icon, type IconName } from "./Icon";
-import { handInAddress } from "./handin";
+import { handInAddress, handInLooks } from "./handin";
 import { ObjectForm } from "./ObjectForm";
+import { PageLinks } from "./PageLinks";
 import { RecordingRules } from "./RecordingRules";
 
 /**
@@ -37,7 +39,9 @@ export function ResultCardView({
   const { result, worker, checks } = card;
   const ruleChecks = checks.filter((check) => check.group === "rule");
   const otherChecks = checks.filter((check) => check.group !== "rule");
-  const handedWord = result.handInKind === "link" ? "Posted" : result.handInKind === "file" ? "Handed in" : "Called dibs";
+  // A job where Dibs opens each page itself: the hand-in is a list of links, one per line. Only real web links are shown.
+  const pageLinks = result.handInKind === "link" && dibsOpensPages(job.card.checker) ? storedPageLinks(result.handInUrl).filter((link) => /^https?:\/\//i.test(link)) : [];
+  const handedWord = pageLinks.length ? "Handed in" : result.handInKind === "link" ? "Posted" : result.handInKind === "file" ? "Handed in" : "Called dibs";
   // On My work, a result that is waiting because it could not be read can be handed in again.
   const againHref = heading === "job" && result.handInKind !== "none" && job.status === "open" ? `/work/${result.claimId}` : null;
   const when = `${handedWord} ${dayMonth(result.handedInAt)}`;
@@ -68,12 +72,15 @@ export function ResultCardView({
             title={job.title}
             mediaSeconds={result.measured.mediaSeconds ?? null}
             fileUrl={result.handInKind === "file" ? handInAddress(result.handInFile) : null}
+            looks={pageLinks.length ? "pages" : result.handInKind === "file" && handInAddress(result.handInFile) ? handInLooks(result.handInFile) : "video"}
+            links={pageLinks}
             rules={ruleChecks.map((check) => ({
               key: check.key,
               label: check.label,
               reason: check.reason,
               passed: check.passed,
               seenAtSeconds: check.seenAtSeconds,
+              headline: check.passed ? null : check.headline,
             }))}
           />
           <div className="checks">
@@ -86,7 +93,7 @@ export function ResultCardView({
         </div>
       ) : (
         <div className={result.handInKind === "none" ? "res-body plain" : "res-body"}>
-          {result.handInKind === "none" ? null : <Clip card={card} />}
+          {result.handInKind === "none" ? null : pageLinks.length ? <PageLinks links={pageLinks} /> : <Clip card={card} />}
           <Stats card={card} now={now} />
           <div className="checks">
             <div className="checks-top">

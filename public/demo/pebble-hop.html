@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pebble Hop - Tin Lantern Games</title>
+<style>
+  :root {
+    --bg: #0e0f11;
+    --panel: #17181b;
+    --line: #2a2c31;
+    --text: #ece9e2;
+    --muted: #9a978f;
+    --accent: #e8b04a;
+  }
+  * { box-sizing: border-box; }
+  /* Every size below is in rem, and 1rem grows with the window.
+     So the page looks the same at any 16:9 size, and stays readable
+     when a recording is shrunk. At 1280 x 720, 1rem is 16px. */
+  html { font-size: clamp(12px, min(1.25vw, 2.2222vh), 40px); }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .page {
+    /* The stage is 2:1. Keep the whole page inside one screen. */
+    width: min(100vw - 3rem, (100vh - 14.75rem) * 2);
+    padding: 1.25rem 0 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: 2.25rem;
+    line-height: 1;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+  .brand p {
+    margin: 0.5rem 0 0;
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .hud {
+    display: flex;
+    gap: 0.625rem;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 0.625rem;
+    padding: 0.6rem 1rem 0.65rem;
+    font-size: 1.5rem;
+    line-height: 1;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .statusbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 0.625rem;
+    padding: 0.6rem 1rem;
+    font-size: 1.375rem;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .statusbar .label {
+    color: var(--muted);
+    font-size: 0.9rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  #status { font-weight: 600; color: var(--accent); }
+  .stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2 / 1;
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: #09090b;
+    container-type: inline-size;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  .overlay {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  #pausedLabel {
+    top: 20%;
+    font-size: 9cqw;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text);
+    background: rgba(9, 9, 11, 0.72);
+    border: 0.25cqw solid var(--text);
+    border-radius: 1.4cqw;
+    padding: 1.4cqw 3cqw 1.6cqw 4cqw;
+  }
+  #banner {
+    top: 54%;
+    background: rgba(9, 9, 11, 0.86);
+    border: 0.25cqw solid var(--accent);
+    border-radius: 1.4cqw;
+    padding: 2.2cqw 4cqw 2.4cqw;
+  }
+  #bannerTitle {
+    font-size: 6cqw;
+    line-height: 1.05;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  #bannerNote {
+    margin-top: 1cqw;
+    font-size: 2.3cqw;
+    line-height: 1.2;
+    color: var(--text);
+  }
+  [hidden] { display: none !important; }
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    font-size: 1.05rem;
+    line-height: 1.2;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  kbd {
+    display: inline-block;
+    font: inherit;
+    font-size: 0.9rem;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 0.375rem;
+    padding: 0.125rem 0.5rem;
+    margin: 0 0.125rem;
+  }
+  button {
+    font: inherit;
+    font-size: 1.1rem;
+    line-height: 1.2;
+    font-weight: 600;
+    color: #17130a;
+    background: var(--accent);
+    border: 0;
+    border-radius: 0.625rem;
+    padding: 0.6rem 1.4rem;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.08); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="brand">
+      <h1>Pebble Hop</h1>
+      <p>Tin Lantern Games</p>
+    </div>
+    <div class="hud">
+      <div class="stat" id="levelText">Level 1</div>
+      <div class="stat" id="scoreText">Score 0</div>
+      <div class="stat" id="coinsText">Coins 0/4</div>
+    </div>
+  </header>
+
+  <div class="statusbar">
+    <span class="label">Status</span>
+    <span id="status">Level 1 started</span>
+  </div>
+
+  <div class="stage">
+    <canvas id="game" width="1920" height="960"></canvas>
+    <div class="overlay" id="pausedLabel" hidden>PAUSED</div>
+    <div class="overlay" id="banner" hidden>
+      <div id="bannerTitle"></div>
+      <div id="bannerNote"></div>
+    </div>
+  </div>
+
+  <footer>
+    <div>Two levels. <kbd>&larr;</kbd><kbd>&rarr;</kbd> move <kbd>Space</kbd> jump <kbd>P</kbd> pause. Reach the flag.</div>
+    <button id="restart" type="button" tabindex="-1">Restart</button>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Sizes and speeds ---------- */
+  var W = 960, H = 480;          // size of the stage in game units
+  var LEFT = 96, RIGHT = 864;    // the play area sits between these two walls
+  var GROUND = 400;              // height of the top of the ground
+  var PW = 28, PH = 32;          // player size
+  var SPEED = 210;               // sideways speed, units per second
+  var JUMP = 540;                // jump push
+  var GRAVITY = 1500;
+  var TICK = 1 / 60;             // the game moves in fixed small steps
+  var OUTSIDE_MIN = 22;          // furthest left the player can ever be
+  var LEVEL_COUNT = 2;
+  var NEXT_LEVEL_WAIT = 3;       // seconds the "Level 1 complete" banner stays
+
+  /* ---------- The two levels ---------- */
+  var LEVELS = [
+    {
+      startX: 130,
+      ground: [[0, 300], [400, 864]],            // gap between them is the pit
+      platforms: [{ x: 620, y: 340, w: 100 }],
+      coins: [[470, 380], [550, 380], [670, 318], [770, 380]],
+      flagX: 826
+    },
+    {
+      startX: 120,
+      ground: [[96, 280], [370, 590], [690, 864]],
+      platforms: [{ x: 430, y: 340, w: 100 }],
+      coins: [[170, 380], [240, 380], [480, 318], [760, 380]],
+      flagX: 826
+    }
+  ];
+
+  /* ---------- Game rules (no drawing in this part) ---------- */
+  function newGame() {
+    var g = {
+      level: 1,
+      score: 0,
+      coins: 0,
+      coinsTotal: 4,
+      mode: "playing",        // playing, paused, between, done
+      status: "",
+      pausedLabel: false,
+      banner: "",
+      bannerNote: "",
+      timer: 0,
+      player: null,
+      taken: []
+    };
+    loadLevel(g, 1);
+    return g;
+  }
+
+  function loadLevel(g, n) {
+    g.level = n;
+    g.coins = 0;
+    g.coinsTotal = LEVELS[n - 1].coins.length;
+    g.taken = LEVELS[n - 1].coins.map(function () { return false; });
+    g.mode = "playing";
+    g.banner = "";
+    g.bannerNote = "";
+    g.status = "Level " + n + " started";
+    placePlayerAtStart(g);
+  }
+
+  function placePlayerAtStart(g) {
+    g.player = {
+      x: LEVELS[g.level - 1].startX,
+      y: GROUND - PH,
+      vx: 0, vy: 0,
+      onGround: true,
+      falling: false,   // true once the player has dropped below the ground
+      facing: 1
+    };
+  }
+
+  function togglePause(g) {
+    if (g.mode === "playing") {
+      g.mode = "paused";
+      g.pausedLabel = true;
+      g.status = "Paused";
+    } else if (g.mode === "paused") {
+      g.mode = "playing";
+      g.status = "Game resumed";
+      // PLANTED BUG (known 1): the big PAUSED label is never taken down here.
+      // The right code would be: g.pausedLabel = false;
+    }
+  }
+
+  // Moves the game forward by one small step. keys = { left, right, jump }.
+  function tick(g, keys) {
+    if (g.mode === "between") {
+      g.timer -= TICK;
+      if (g.timer <= 0) loadLevel(g, g.level + 1);
+      return;
+    }
+    if (g.mode !== "playing") return;
+
+    var lv = LEVELS[g.level - 1];
+    var p = g.player;
+
+    // Sideways movement. No steering once the player is down in the pit.
+    var dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    p.vx = p.falling ? 0 : dir * SPEED;
+    if (dir !== 0 && !p.falling) p.facing = dir;
+
+    if (keys.jump && p.onGround) {
+      p.vy = -JUMP;
+      p.onGround = false;
+    }
+
+    var feetBefore = p.y + PH;
+    p.vy += GRAVITY * TICK;
+    p.x += p.vx * TICK;
+    p.y += p.vy * TICK;
+
+    // Walls.
+    var minX = LEFT;
+    var maxX = RIGHT - PW;
+    // PLANTED BUG (known 2): on level 1 the left wall does not stop the player.
+    if (g.level === 1) minX = OUTSIDE_MIN;
+    if (p.x < minX) p.x = minX;
+    if (p.x > maxX) p.x = maxX;
+
+    // Landing on the ground or on a platform (only when moving down).
+    p.onGround = false;
+    if (p.vy >= 0 && !p.falling) {
+      var feet = p.y + PH;
+      var tops = [];
+      lv.platforms.forEach(function (pl) { tops.push([pl.x, pl.x + pl.w, pl.y]); });
+      lv.ground.forEach(function (s) { tops.push([s[0], s[1], GROUND]); });
+      for (var i = 0; i < tops.length; i++) {
+        var t = tops[i];
+        var over = p.x + PW > t[0] && p.x < t[1];
+        if (over && feetBefore <= t[2] + 0.01 && feet >= t[2]) {
+          p.y = t[2] - PH;
+          p.vy = 0;
+          p.onGround = true;
+          break;
+        }
+      }
+    }
+    if (!p.onGround && p.y + PH > GROUND + 0.01) p.falling = true;
+
+    // Fell out of the bottom of the stage.
+    if (p.y > H + 20) {
+      // PLANTED BUG (known 3): the score is allowed to go below zero.
+      // The right code would be: g.score = Math.max(0, g.score - 50);
+      g.score = g.score - 50;
+      g.status = "Fell in the pit. Lost 50 points";
+      placePlayerAtStart(g);
+      return;
+    }
+
+    // Coins.
+    for (var c = 0; c < lv.coins.length; c++) {
+      if (g.taken[c]) continue;
+      var cx = lv.coins[c][0], cy = lv.coins[c][1];
+      if (p.x < cx + 10 && p.x + PW > cx - 10 && p.y < cy + 10 && p.y + PH > cy - 10) {
+        g.taken[c] = true;
+        g.coins += 1;
+        g.score += 10;
+        g.status = "Coin collected";
+        var allTaken = g.taken.every(function (v) { return v; });
+        // PLANTED BUG (hidden A): the last coin on level 2 is counted twice.
+        if (g.level === 2 && allTaken) g.coins += 1;
+      }
+    }
+
+    // Flag.
+    if (p.x + PW >= lv.flagX) {
+      g.score += 100;
+      if (g.level < LEVEL_COUNT) {
+        g.banner = "Level " + g.level + " complete";
+        g.bannerNote = "Next level starts soon";
+        g.status = g.banner;
+        g.mode = "between";
+        g.timer = NEXT_LEVEL_WAIT;
+      } else {
+        // PLANTED BUG (hidden B): the last banner names a level that does not exist.
+        // The right code would use g.level, not g.level + 1.
+        g.banner = "Level " + (g.level + 1) + " complete";
+        g.bannerNote = "You finished the game. Press Restart to play again";
+        g.status = g.banner;
+        g.mode = "done";
+      }
+    }
+  }
+
+  // Lets a test script use the rules without a browser.
+  var api = { newGame: newGame, tick: tick, togglePause: togglePause, LEVELS: LEVELS,
+              TICK: TICK, LEFT: LEFT, RIGHT: RIGHT, GROUND: GROUND, PW: PW, PH: PH };
+  if (typeof globalThis !== "undefined") globalThis.PebbleHop = api;
+  if (typeof document === "undefined") return;
+
+  /* ---------- Screen, keys and drawing ---------- */
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+  var el = {
+    level: document.getElementById("levelText"),
+    score: document.getElementById("scoreText"),
+    coins: document.getElementById("coinsText"),
+    status: document.getElementById("status"),
+    paused: document.getElementById("pausedLabel"),
+    banner: document.getElementById("banner"),
+    bannerTitle: document.getElementById("bannerTitle"),
+    bannerNote: document.getElementById("bannerNote"),
+    restart: document.getElementById("restart")
+  };
+
+  var C = {
+    outside: "#09090b",
+    area: "#15161a",
+    ground: "#26282e",
+    groundTop: "#474a53",
+    pit: "#0c0c0f",
+    wall: "#474a53",
+    platform: "#474a53",
+    pebble: "#e6e2d8",
+    pebbleShade: "#bdb8ab",
+    eye: "#17181b",
+    accent: "#e8b04a",
+    accentDark: "#a97a25",
+    pole: "#cfcabd"
+  };
+
+  var game = newGame();
+  window.__pebbleHopGame = function () { return game; };
+  var keys = { left: false, right: false, jump: false };
+
+  function setKey(e, down) {
+    var k = e.key;
+    if (k === "ArrowLeft") keys.left = down;
+    else if (k === "ArrowRight") keys.right = down;
+    else if (k === " " || k === "Spacebar" || e.code === "Space") keys.jump = down;
+    else if (k === "ArrowUp" || k === "ArrowDown") { /* no action, but stop the page from scrolling */ }
+    else return false;
+    return true;
+  }
+
+  window.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if ((e.key === "p" || e.key === "P") && !e.repeat) {
+      togglePause(game);
+      e.preventDefault();
+      return;
+    }
+    if (setKey(e, true)) e.preventDefault();
+  });
+  window.addEventListener("keyup", function (e) {
+    if (setKey(e, false)) e.preventDefault();
+  });
+  window.addEventListener("blur", function () {
+    keys.left = keys.right = keys.jump = false;
+  });
+
+  // The button never takes keyboard focus, so Space can not press it by mistake.
+  el.restart.addEventListener("mousedown", function (e) { e.preventDefault(); });
+  el.restart.addEventListener("click", function () {
+    game = newGame();
+    keys.left = keys.right = keys.jump = false;
+    el.restart.blur();
+  });
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function draw() {
+    var lv = LEVELS[game.level - 1];
+    var p = game.player;
+    ctx.setTransform(2, 0, 0, 2, 0, 0);   // the canvas is drawn at double size to stay sharp
+
+    // Outside, then the play area.
+    ctx.fillStyle = C.outside;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = C.area;
+    ctx.fillRect(LEFT, 0, RIGHT - LEFT, H);
+
+    // Pits show as dark gaps: paint the whole floor dark, then the ground on top.
+    ctx.fillStyle = C.pit;
+    ctx.fillRect(LEFT, GROUND, RIGHT - LEFT, H - GROUND);
+    lv.ground.forEach(function (s) {
+      var x1 = Math.max(s[0], LEFT), x2 = Math.min(s[1], RIGHT);
+      ctx.fillStyle = C.ground;
+      ctx.fillRect(x1, GROUND, x2 - x1, H - GROUND);
+      ctx.fillStyle = C.groundTop;
+      ctx.fillRect(x1, GROUND, x2 - x1, 4);
+    });
+
+    // Platforms.
+    ctx.fillStyle = C.platform;
+    lv.platforms.forEach(function (pl) {
+      roundRect(pl.x, pl.y, pl.w, 10, 4);
+      ctx.fill();
+    });
+
+    // Coins.
+    lv.coins.forEach(function (c, i) {
+      if (game.taken[i]) return;
+      ctx.fillStyle = C.accent;
+      ctx.beginPath(); ctx.arc(c[0], c[1], 9, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = C.accentDark;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(c[0], c[1], 5, 0, Math.PI * 2); ctx.stroke();
+    });
+
+    // Flag.
+    ctx.fillStyle = C.pole;
+    ctx.fillRect(lv.flagX + 6, GROUND - 78, 4, 78);
+    ctx.fillStyle = C.accent;
+    ctx.beginPath();
+    ctx.moveTo(lv.flagX + 10, GROUND - 78);
+    ctx.lineTo(lv.flagX + 34, GROUND - 66);
+    ctx.lineTo(lv.flagX + 10, GROUND - 54);
+    ctx.closePath();
+    ctx.fill();
+
+    // Walls.
+    ctx.fillStyle = C.wall;
+    ctx.fillRect(LEFT - 12, 0, 12, H);
+    ctx.fillRect(RIGHT, 0, 12, H);
+
+    // Player (the pebble).
+    ctx.fillStyle = C.pebble;
+    roundRect(p.x, p.y, PW, PH, 11);
+    ctx.fill();
+    ctx.fillStyle = C.pebbleShade;
+    roundRect(p.x + 3, p.y + PH - 8, PW - 6, 5, 2.5);
+    ctx.fill();
+    ctx.fillStyle = C.eye;
+    var ex = p.x + PW / 2 + p.facing * 4;
+    ctx.beginPath(); ctx.arc(ex - 4.5, p.y + 13, 2.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex + 4.5, p.y + 13, 2.4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function setText(node, text) {
+    if (node.textContent !== text) node.textContent = text;
+  }
+
+  function showHud() {
+    setText(el.level, "Level " + game.level);
+    setText(el.score, "Score " + game.score);
+    setText(el.coins, "Coins " + game.coins + "/" + game.coinsTotal);
+    setText(el.status, game.status);
+    el.paused.hidden = !game.pausedLabel;
+    el.banner.hidden = !game.banner;
+    setText(el.bannerTitle, game.banner);
+    setText(el.bannerNote, game.bannerNote);
+  }
+
+  var last = null;
+  var owed = 0;
+  function frame(now) {
+    if (last === null) last = now;
+    owed += Math.min(0.1, (now - last) / 1000);
+    last = now;
+    while (owed >= TICK) {
+      tick(game, keys);
+      owed -= TICK;
+    }
+    draw();
+    showHud();
+    requestAnimationFrame(frame);
+  }
+  showHud();
+  draw();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

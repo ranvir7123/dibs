@@ -1,5 +1,5 @@
 // AI watches a recording against rules and prints the moment each rule was met.
-// Needs GOOGLE_AI_API_KEY in .env.local.
+// Needs ANTHROPIC_API_KEY in .env.local for a recording kept on this machine, or GOOGLE_AI_API_KEY for a public video link.
 //   npx tsx src/checkers/cli/watch.ts "C:\path\recording.mp4" "Tiny Comet Games" rules.json
 // rules.json is a list like: [{ "id": "level_2", "label": "Reached level 2", "detail": "The level counter changes from 1 to 2." }]
 // Without rules.json, the five sample rules of the Tiny Comet test job are used.
@@ -44,7 +44,7 @@ const clock = (s: number | null) => (s === null ? "Not seen" : `${String(Math.fl
 
 console.log(`AI for watching: ${aiStatus().watch ?? "none (no key)"}`);
 const started = Date.now();
-watchRecording({ video, card, posterName })
+watchRecording({ video, card, posterName, sentence: "", alreadyPaid: [] })
   .then((r) => {
     for (const rule of r.rules) console.log(`${rule.met ? "PASS" : "FAIL"}  ${clock(rule.seenAtSeconds).padEnd(9)} ${rule.label}: ${rule.reason}`);
     console.log(`One take: ${r.oneTake?.ok ? "yes" : "no"}. ${r.oneTake?.reason ?? ""}`);

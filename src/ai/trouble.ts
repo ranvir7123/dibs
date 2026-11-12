@@ -11,6 +11,19 @@ export class AiTrouble extends Error {
   }
 }
 
+/**
+ * The AI refused the handed-in file itself (too big, too many pages, damaged,
+ * or not really a picture or PDF). Trying again would give the same answer,
+ * so the worker is told and can hand in another file. The message is safe to
+ * show on screen.
+ */
+export class AiCannotOpen extends Error {
+  constructor(message = "The AI could not open this file. It may be too big, have too many pages, or be damaged. Please hand in a smaller or simpler file.") {
+    super(message);
+    this.name = "AiCannotOpen";
+  }
+}
+
 /** True for any error that means "the AI could not do its job", as opposed to a problem with what was handed in. */
 export function isAiTrouble(error: unknown): error is Error {
   return error instanceof Error && (error.name === "AiTrouble" || error.name === "AiKeyMissing");

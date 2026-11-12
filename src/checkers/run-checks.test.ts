@@ -3,9 +3,9 @@ import { count, eq } from "drizzle-orm";
 import { AiTrouble, useAi, type Ai } from "@/ai";
 import { closeDb, getDb, type Db } from "@/db/client";
 import { newId } from "@/db/ids";
-import { checks, moneyMoves, readings, results, sales } from "@/db/schema";
+import { checks, jobs, moneyMoves, readings, results, sales } from "@/db/schema";
 import { seed } from "@/db/seed";
-import { callDibs, handIn, objectToOpinion } from "@/db/write";
+import { callDibs, createJob, handIn, objectToOpinion } from "@/db/write";
 import { settings } from "@/settings";
 import { runChecks, storeHandInFile } from "./index";
 import { runChecksAt } from "./run-checks";
@@ -50,7 +50,7 @@ const EXAMPLE_PROMO = {
 };
 const EXAMPLE_OPINION = { acceptable: true, reason: "Every menu item is there and the Hindi reads naturally.", rules: [] };
 
-const ai = { text: vi.fn(), watch: vi.fn() };
+const ai = { text: vi.fn(), watch: vi.fn(), look: vi.fn() };
 
 beforeAll(async () => {
   db = await getDb();
@@ -66,6 +66,7 @@ afterAll(async () => {
 beforeEach(() => {
   ai.text.mockReset();
   ai.watch.mockReset();
+  ai.look.mockReset();
   reader.mockClear();
 });
 
@@ -241,6 +242,108 @@ describe("runChecks on a recording (EXAMPLE AI answer, not real AI output)", () 
     expect(ai.text).not.toHaveBeenCalled();
     await expect(storeHandInFile({ claimId: "clm_nobody", fileName: "a.mp4", bytes: new Uint8Array([1]) })).rejects.toThrow("No such claim");
     await expect(storeHandInFile({ claimId: claim.id, fileName: "a.mp4", bytes: new Uint8Array() })).rejects.toThrow("The file is empty");
+  });
+});
+
+describe("runChecks on a job that pays for each find (EXAMPLE AI answers, not real AI output)", () => {
+  const KNOWN = "The coupon box accepts expired codes";
+  const SENTENCE = `Find bugs on my checkout page. $8 a bug, up to $80. I already know: ${KNOWN}.`;
+  const find = (label: string, verdict: string, matches = "", seenAt = "00:20") => ({ label, seenAt, reason: `${label} is shown on screen.`, verdict, matches });
+  const answer = (items: unknown[]) => ({ rules: [], oneTake: true, oneTakeReason: "One take.", rightSubject: true, rightSubjectReason: "It is the Northside Bakes checkout.", items, recordingSeconds: 60 });
+  const upload = async (claimId: string, fileName: string) => handIn({ claimId, file: await storeHandInFile({ claimId, fileName, bytes: new Uint8Array([1, 2, 3]) }) });
+  let listJob = "";
+
+  beforeAll(async () => {
+    // The same bugs job as the sample data, posted again with a does-not-count list.
+    const old = (await db.select().from(jobs).where(eq(jobs.id, "job_northside_bugs")))[0];
+    const card = { ...old.card, endsAt: new Date(Date.now() + 5 * DAY).toISOString(), checker: { ...old.card.checker, doesNotCount: [KNOWN] } };
+    const made = await createJob({ posterId: old.posterId, sentence: SENTENCE, card });
+    await db.update(jobs).set({ status: "open" }).where(eq(jobs.id, made.id));
+    listJob = made.id;
+  });
+
+  it("pays for the new find only, and says which known line the other one matches", async () => {
+    // The AI words the known line a little differently; the card's own wording is what is shown.
+    ai.watch.mockResolvedValue(answer([find("Expired coupon still works", "known", "1. the coupon box accepts expired codes"), find("The basket empties on back", "new", "", "00:41")]));
+    const { claim } = await callDibs({ jobId: listJob, workerId: "per_dev" });
+    await upload(claim.id, "bugs.mp4");
+
+    const report = await runChecks(claim.id);
+    const prompt = ai.watch.mock.calls[0][0].prompt as string;
+    expect(prompt).toContain(SENTENCE);
+    expect(prompt).toContain(`1. ${KNOWN}`);
+    expect(prompt).toContain("Already-paid list (finds already counted for other workers on this job; each find is paid once):\n(nothing on this list)");
+
+    expect(report.checks.map((c) => [c.key, c.group, c.passed, c.headline, c.seenAtSeconds])).toEqual([
+      ["item:1", "rule", false, `Already known: ${KNOWN}`, 20],
+      ["item:2", "rule", true, null, 41],
+      ["recording", "cheat", true, null, null],
+    ]);
+    expect(report.checks[0].reason).toBe("Expired coupon still works is shown on screen.");
+    expect(report.measured).toEqual({ mediaSeconds: 60, items: 1 });
+    expect(report.earnedCents).toBe(800); // one find at $8.00
+    expect(report.status).toBe("checking"); // a refused find does not block the hand-in
+    expect(report.summary).toBe("1 of 2 finds counted. $8.00 earned, with nobody approving it.");
+  });
+
+  it("checks a photo without cutting anything, and does not pay twice for a find another worker was paid for", async () => {
+    ai.look.mockResolvedValue(answer([find("Basket is empty after going back", "already_paid", "The basket empties on back: The basket empties on back is shown on screen."), find("Works as designed", "not_real")]));
+    const { claim } = await callDibs({ jobId: listJob, workerId: "per_tara" });
+    await upload(claim.id, "Bug Photo.PNG");
+
+    const report = await runChecks(claim.id);
+    expect(ai.watch).not.toHaveBeenCalled(); // a photo is looked at as it is: no recording, so nothing to cut into pictures
+    const asked = ai.look.mock.calls[0][0];
+    expect(asked.pictures).toMatchObject([{ mimeType: "image/png", label: "The photo" }]);
+    expect(asked.pictures[0].path).toMatch(/Bug-Photo\.png$/);
+    expect(asked.prompt).toContain("1. The basket empties on back: The basket empties on back is shown on screen.");
+    expect(asked.prompt).toContain("You are checking a photo");
+
+    expect(report.checks.map((c) => [c.key, c.label, c.passed, c.headline, c.seenAtSeconds])).toEqual([
+      ["item:1", "Basket is empty after going back", false, "Already paid to another worker", null],
+      ["item:2", "Works as designed", false, "Not a real problem", null],
+      ["recording", "The photo is real", true, null, null],
+    ]);
+    expect(report.earnedCents).toBe(0);
+    expect(report.measured).toEqual({ items: 0 });
+    expect(report.status).toBe("checking");
+    expect(report.summary).toBe("None of the finds counted, so nothing was earned. The held money was not touched.");
+    expect((await db.select().from(results).where(eq(results.claimId, claim.id)))[0]).toMatchObject({ watchLabel: "Photo check", watchOk: true });
+  });
+
+  it("still works for a job card saved before the does-not-count list existed", async () => {
+    // The sample bugs job has no list. The AI wrongly says "known"; with nothing on the list, the find counts.
+    ai.watch.mockResolvedValue(answer([find("The pay button can be pressed twice", "known", "something"), find("Total is wrong after removing an item", "new")]));
+    const { claim } = await callDibs({ jobId: "job_northside_bugs", workerId: "per_kabir" });
+    await upload(claim.id, "bugs.mp4");
+
+    const report = await runChecks(claim.id);
+    const prompt = ai.watch.mock.calls[0][0].prompt as string;
+    expect(prompt).toContain("a find that matches earns nothing):\n(nothing on this list)");
+    // The two finds the sample data already paid ishaan for are handed to the AI; the one that did not count is not.
+    expect(prompt).toContain("1. An expired coupon is still accepted: The code BAKE10 ended in October and still took 10% off.");
+    expect(prompt).toContain("2. The basket empties when you go back");
+    expect(prompt).not.toContain("The total shows the wrong delivery fee");
+    expect(report.checks.filter((c) => c.key.startsWith("item:")).map((c) => [c.passed, c.headline])).toEqual([
+      [true, null],
+      [true, null],
+    ]);
+    expect(report.earnedCents).toBe(1600);
+    expect(report.summary).toBe("2 of 2 finds counted. $16.00 earned, with nobody approving it.");
+  });
+
+  it("reads a PDF through the AI that looks at files, against the job's rules", async () => {
+    ai.look.mockResolvedValue({ rules: EXAMPLE_RECORDING.rules.map(({ id, met, reason }) => ({ id, met, reason })) });
+    const { claim } = await callDibs({ jobId: "job_tinycomet_test", workerId: "per_tara" });
+    await upload(claim.id, "test-report.pdf");
+
+    const report = await runChecks(claim.id);
+    expect(ai.text).not.toHaveBeenCalled();
+    expect(ai.watch).not.toHaveBeenCalled();
+    expect(ai.look.mock.calls[0][0]).toMatchObject({ pictures: [], pdfPath: expect.stringMatching(/test-report\.pdf$/) });
+    expect(report.measured).toEqual({ rulesPassed: 4, rulesTotal: 5 });
+    expect(report.earnedCents).toBe(1200);
+    expect(report.checks.every((c) => c.seenAtSeconds === null)).toBe(true);
   });
 });
 

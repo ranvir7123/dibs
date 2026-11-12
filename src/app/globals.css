@@ -346,8 +346,8 @@ textarea.typed:focus-visible { border-color: var(--text); }
 .clip .mid { align-self: center; display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: var(--pill); background: rgba(10, 10, 10, .62); font-size: 14px; font-weight: 700; }
 .clip a.mid, .clip button.mid { color: #fbf7e6; text-decoration: none; border: 0; }
 .clip a.mid:hover { background: rgba(10, 10, 10, .82); }
-.clip video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
-.clip.game video { object-fit: contain; }
+.clip video, .clip img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.clip.game video, .clip.game img { object-fit: contain; }
 
 .stats { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
 .counts { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -410,6 +410,7 @@ details.chk[open] > summary .turn { transform: rotate(180deg); }
 .rule.no svg { color: var(--stop); }
 .rule p { margin: 0; min-width: 0; }
 .rule small { display: block; color: var(--mute); font-size: 14px; line-height: 20px; }
+.rule .why-not { display: block; color: var(--stop-text); font: 700 14px/20px var(--sans); margin: 2px 0; }
 .rule time { font: 600 13px/1 var(--sans); color: var(--sec); font-variant-numeric: tabular-nums; padding: 5px 9px; border-radius: var(--pill); background: var(--card); }
 button.rule { width: 100%; text-align: left; color: var(--text); transition: background .15s ease; }
 button.rule:hover, button.rule.on { background: var(--wash-2); }
@@ -421,6 +422,7 @@ button.rule:hover, button.rule.on { background: var(--wash-2); }
 .linkbox { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 8px 8px 16px; border-radius: var(--r-in); background: var(--inset); }
 .linkbox code { flex: 1; min-width: 0; font: 600 15px/22px var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .linkbox svg { color: var(--mute); }
+.rules > .linkbox { min-width: 0; }
 
 /* Rows of money or jobs. */
 .rows { overflow: hidden; }

@@ -47,13 +47,15 @@ export async function nextCheckIsSlow(claimId: string): Promise<boolean> {
   const usesAi = !checker.machineCheckable || checker.evidence.some((e) => e === "ai_watch" || e === "ai_read" || e === "ai_opinion" || e === "live_site");
   if (!usesAi) return false;
   // A posted video with nothing it must show is only counted, never watched.
-  if (checker.machineCheckable && result.handInKind === "link" && checker.mustShow.length === 0) return false;
+  // (Links to pages Dibs opens itself are different: AI reads every page.)
+  const opensPages = result.handInKind === "link" && checker.evidence.includes("live_site");
+  if (checker.machineCheckable && result.handInKind === "link" && checker.mustShow.length === 0 && !opensPages) return false;
 
   const answered = await db
     .select({ key: checks.key, group: checks.group })
     .from(checks)
     .where(and(eq(checks.resultId, result.id), gte(checks.ranAt, result.handedInAt)));
-  return !answered.some((c) => c.group === "must_show" || c.group === "rule" || c.group === "opinion" || c.key === "recording");
+  return !answered.some((c) => c.group === "must_show" || c.group === "rule" || c.group === "opinion" || c.key === "recording" || c.key === "pages_opened");
 }
 
 /** Starts one background task and returns Render's number for the run. */
