@@ -88,42 +88,19 @@ services:
     plan: 0.5c-512mb
     region: singapore
     schedule: "* * * * *" # every minute. Only one run at a time: the next waits for the last to finish.
-    buildCommand: npm install --include=dev
-    startCommand: npm run tick
+    # The timer holds no keys. It asks the site, over Render's own inside network,
+    # to run the due checks and payments, and prints the answer. So nothing here
+    # is copied from a box that may have been left empty.
+    buildCommand: echo "nothing to build"
+    startCommand: node scripts/tick-call.mjs
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: dibs-db
-          property: connectionString
-      # The site keeps uploaded files on its own disk. The timer fetches them from
-      # the site over Render's own network when it needs one.
       - key: DIBS_WEB_HOSTPORT
         fromService:
           name: dibs
           type: web
           property: hostport
-      # Every key below is read from the site's own settings, so each is typed once only.
-      - key: DIBS_BASE_URL
-        fromService: { name: dibs, type: web, envVarKey: DIBS_BASE_URL }
-      - key: PAYPAL_CLIENT_ID
-        fromService: { name: dibs, type: web, envVarKey: PAYPAL_CLIENT_ID }
-      - key: PAYPAL_CLIENT_SECRET
-        fromService: { name: dibs, type: web, envVarKey: PAYPAL_CLIENT_SECRET }
-      - key: PAYPAL_WEBHOOK_ID
-        fromService: { name: dibs, type: web, envVarKey: PAYPAL_WEBHOOK_ID }
-      - key: PAYPAL_TEST_BUYER_EMAIL
-        fromService: { name: dibs, type: web, envVarKey: PAYPAL_TEST_BUYER_EMAIL }
-      - key: PAYPAL_TEST_WORKER_EMAIL
-        fromService: { name: dibs, type: web, envVarKey: PAYPAL_TEST_WORKER_EMAIL }
-      - key: PAYPAL_TEST_WORKER2_EMAIL
-        fromService: { name: dibs, type: web, envVarKey: PAYPAL_TEST_WORKER2_EMAIL }
-      - key: GOOGLE_AI_API_KEY
-        fromService: { name: dibs, type: web, envVarKey: GOOGLE_AI_API_KEY }
-      - key: YOUTUBE_API_KEY
-        fromService: { name: dibs, type: web, envVarKey: YOUTUBE_API_KEY }
-      - key: ANTHROPIC_API_KEY
-        fromService: { name: dibs, type: web, envVarKey: ANTHROPIC_API_KEY }
-      - key: DIBS_CHECKS_ON_RENDER
-        fromService: { name: dibs, type: web, envVarKey: DIBS_CHECKS_ON_RENDER }
-      - key: RENDER_API_KEY
-        fromService: { name: dibs, type: web, envVarKey: RENDER_API_KEY }
+      - key: TICK_SECRET # the same made-up password the site has
+        fromService:
+          name: dibs
+          type: web
+          envVarKey: TICK_SECRET
