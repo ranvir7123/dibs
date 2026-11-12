@@ -9,6 +9,15 @@ Built by Ranvir for the PayPal AI Hackathon, November 2026.
 > ## PayPal test mode. No real money.
 > Everything in this project runs against PayPal's test system (its "sandbox"). The buyers and workers are pretend accounts from PayPal's developer page. No real money moves anywhere. Do not point it at real PayPal keys.
 
+**Try it:** https://dibs-eqcw.onrender.com (PayPal test mode)
+
+## Sponsor tools used
+
+| Tool | What it does in Dibs | Where in the code |
+|---|---|---|
+| **Render** | Runs everything: the always-on site, the Postgres database, a disk that keeps uploaded recordings, and a timer that runs the checks and payments once a minute | `render.yaml`, `scripts/tick-call.mjs`, `docs/GOING-ONLINE.md` |
+| **AG Grid: AG Studio** | The Ledger page (`/ledger`): two charts, a table of every money move with PayPal's reference, and an "Ask a question" box | `src/ui/LedgerStudio.tsx`, `src/ui/LedgerAdapter.ts`, `src/app/(site)/ledger/`, `src/app/api/ledger/ask/` |
+
 ## Who uses it
 
 | Person | Does | Sees |
@@ -35,7 +44,7 @@ You need [Node.js](https://nodejs.org) 24 or newer and [Git](https://git-scm.com
 1. Get the code and its packages:
 
 ```powershell
-git clone https://github.com/FILL-IN-YOUR-NAME/dibs.git
+git clone https://github.com/ranvir7123/dibs.git
 ```
 
 ```powershell
@@ -72,8 +81,8 @@ That is enough to look around: the board, the job pages and the result cards wor
 |---|---|---|
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | [PayPal's developer page](https://developer.paypal.com/dashboard/applications/sandbox), "Apps & Credentials", in Sandbox mode | Locking, taking, paying, letting go |
 | `PAYPAL_TEST_BUYER_EMAIL`, `PAYPAL_TEST_WORKER_EMAIL`, `PAYPAL_TEST_WORKER2_EMAIL` | The same page, "Sandbox accounts": one pretend buyer and two pretend people to be paid | Approving a hold and receiving payouts |
-| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) | AI writing the job card and reading files |
-| `GOOGLE_AI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/apikey) | AI watching videos and recordings |
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) | Claude: writing the job card, looking at recordings, photos and files |
+| `GOOGLE_AI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/apikey) | Gemini: watching public videos, the Ledger's ask box, backup for job cards |
 | `YOUTUBE_API_KEY` | [Google Cloud console](https://console.cloud.google.com/apis/library/youtube.googleapis.com) | Reading view counts the official way |
 | `DIBS_BASE_URL` | `http://localhost:3000` on a laptop | Tracked links, and PayPal sending people back |
 | `TICK_SECRET` | Make up a long password | Protecting the "run the checks" address |
@@ -110,7 +119,12 @@ PayPal is not only the pay button here. It holds the budget, pays in exact parts
 | Pay the worker by email, with a note saying what it was for | Payouts | `POST /v1/payments/payouts` | `payWorker` in `src/money/index.ts` |
 | Give back what was not earned when the job ends | Void an authorization | `POST /v2/payments/authorizations/{id}/void` | `letGo` in `src/money/index.ts` |
 | Prove a sale happened, and whose it was | An order that carries the worker's code in its `custom_id` | `POST /v2/checkout/orders`, then `.../capture` | `startShopOrder` and `finishShopOrder` in `src/money/shop.ts` (the sale is then stored by `recordSale` in `src/money/index.ts`); the shop page is in `src/app/shop/` |
-| Hear about sales from PayPal directly | Webhooks (PayPal calling our server), with PayPal's signature checked | `POST /v1/notifications/verify-webhook-signature` | `src/app/api/paypal/` |
+| Hear about sales and refunds from PayPal directly | Webhooks (PayPal calling our server), with PayPal's signature checked | `POST /v1/notifications/verify-webhook-signature` | `src/app/api/paypal/` |
+| Approve the hold, or pay the shop, without leaving the page | PayPal JavaScript SDK v6 (PayPal's button and window) | `https://www.sandbox.paypal.com/web-sdk/v6/core` | `src/ui/PayPalButton.tsx`, `src/app/api/paypal/hold/`, `src/app/api/paypal/shop/` |
+| Show the date the hold ends on every job | Show authorization details | `GET /v2/payments/authorizations/{id}` | `confirmHold` in `src/money/index.ts` |
+| Refund a shop sale, all or part. A refunded sale earns no commission | Refund a captured payment | `POST /v2/payments/captures/{id}/refund` | `refundSale` and `refreshSale` in `src/money/sales.ts`; the orders page is `src/app/shop/orders/` |
+| Show a job's money from start to end, with PayPal's reference on each line | (built from the rows above) | none | `getMoneyTrail` in `src/money/trail.ts`, `src/ui/MoneyTrail.tsx` |
+| Confirm a person's PayPal account. Built, switched off on the live site | Log in with PayPal | PayPal's sign-in page, then `GET /v1/identity/openidconnect/userinfo` | `src/money/login.ts`, `src/app/api/paypal/login/` |
 
 Every call to PayPal is in `src/money/paypal.ts`. Every money movement is stored as a row with PayPal's own reference number, and "paid" and "held" on screen are added up from those rows, never stored as a running total.
 
@@ -120,10 +134,11 @@ AI never calls PayPal. Only `src/money/` does.
 
 | Job | Done by | Where in the code |
 |---|---|---|
-| Turn one sentence into a job card with its own checker | AI (text) | `src/checkers/job-card.ts` |
-| Watch a posted promo video: does it name the brand, show the link, say it is paid? | AI (video) | `src/checkers/watch.ts` |
-| Watch a test recording and note the moment each rule is met | AI (video) | `src/checkers/watch.ts` |
-| Read a handed-in file against the job's rules, or give an opinion when nothing can be measured | AI (text) | `src/checkers/watch.ts` |
+| Turn one sentence into a job card with its own checker | Claude (`claude-opus-5-5`, Anthropic API). Gemini is the backup | `src/checkers/job-card.ts`, `src/ai/claude.ts` |
+| Look at an uploaded recording: it is cut into one picture per second, with no sound | Claude | `src/ai/frames.ts`, `src/checkers/watch.ts` |
+| Look at a handed-in photo or PDF, read a text file, read a web page Dibs opened itself, or give an opinion when nothing can be measured | Claude | `src/checkers/watch.ts`, `src/checkers/pages.ts` |
+| Watch a public promo video: does it name the brand, show the link, say it is paid? | Gemini (`gemini-3.8-flash`, Google AI API) | `src/checkers/watch.ts`, `src/ai/gemini.ts` |
+| Answer a question in the Ledger | Gemini | `src/app/api/ledger/ask/` |
 | Read view counts, count clicks, spot repeats and bursts, work out pay | Plain code, no AI | `src/checkers/video-site.ts`, `clicks.ts`, `cheat-tests.ts`, `pay.ts` |
 | Move money | PayPal, called by plain code | `src/money/` |
 
@@ -146,15 +161,15 @@ Not tested, or not built. Please read these before trusting it:
 
 - **Test mode only.** Never run with real PayPal keys.
 - **No passwords.** People pick a name and give the email their PayPal uses. Anyone who knows a person's id could act as them. Fine for a demo, not for real use.
-- **The sale path was the last to be proven.** As of 10 Nov 2026, a buyer paying the shop page with a PayPal test account, and PayPal telling our server about it, had not been run from start to finish.
+- **The sale path is proven.** A pretend buyer paid the shop $32.00 through PayPal's button on the live site on 12 Nov 2026. Refunds, the hold's end date and the money trail passed 14 of 14 checks against PayPal test mode (`src/money/proof/additions-results.txt`). A real message from PayPal arriving at our server (a webhook) has not been seen.
 - **Views can be bought.** Dibs flags patterns (sudden jumps, views with no likes) but cannot be certain. That is why view jobs are marked "weak proof" on the card.
 - **AI can miss a moment** in a recording. Recording jobs are marked "medium proof".
 - **One visitor is one address plus one browser.** Two people on the same Wi-Fi with the same browser can look like one visitor.
 - **A PayPal hold lasts 29 days at most**, and PayPal only promises the money for the first 3 days. So a job runs 3 weeks at most.
 - **How many times one hold can be taken from** is untested beyond two. Pay is sent in batches, at most once an hour per job.
-- **Recordings are saved on the server's own disk.** That works on a laptop. On Vercel it does not (uploads over 4.5 MB are refused and the disk is not kept), so recording jobs currently need the laptop copy.
+- **Recordings are saved on the server's own disk.** Online, that is a Render disk that is kept across new versions. A recording being read on the live site has not been run from start to finish.
 - **The 10% fee** is shown on the job card but not taken.
-- **Not built:** AI visiting a live website to repeat a bug (bug jobs are checked from the worker's recording), streamer jobs, taking back commission when a sale is refunded, real stores connecting their own PayPal (the sale demo uses a small shop page Dibs hosts).
+- **Not built:** AI visiting a live website to repeat a bug (bug jobs are checked from the worker's recording), streamer jobs, real stores connecting their own PayPal (the sale demo uses a small shop page Dibs hosts).
 - **A hosted database and the online site** were set up last. See `docs/GOING-ONLINE.md` for what was and was not checked there.
 
 ## Where things are
@@ -167,7 +182,7 @@ Not tested, or not built. Please read these before trusting it:
 | `src/checkers/`, `src/ai/`, `src/app/r/`, `src/app/api/tick/` | Checkers, AI, tracked links, the "run the checks" address |
 | `src/app/(site)/`, `src/ui/` | The screens |
 | `scripts/` | The click attack, the demo reset, and their tests |
-| `docs/` | The design, the build plan, the video script, and how to put it online |
+| `docs/` | The shared contract and how to put it online |
 
 ## Licence
 
