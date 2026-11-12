@@ -124,11 +124,11 @@ function siteColours() {
   const style = getComputedStyle(document.documentElement);
   const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
   return {
-    page: read("--page", "#fff3c4"),
+    page: read("--page", "#ebe3d6"),
     card: read("--card", "#ffffff"),
-    line: read("--line", "#ebe3c4"),
+    line: read("--line", "#e0d8ca"),
     text: read("--text", "#15130a"),
-    mute: read("--mute", "#6e6748"),
+    mute: read("--mute", "#655d4e"),
     paid: read("--paid", "#1f7a4d"),
     stop: read("--stop", "#d6453d"),
     font: getComputedStyle(document.body).fontFamily || "system-ui, sans-serif",
@@ -182,10 +182,10 @@ function dibsTheme() {
     chartGridLineColor: c.line,
     // Green is money paid. Sand is money that went back. Ink is money still locked.
     chartPaletteFills1Color: c.paid,
-    chartPaletteFills2Color: "#d9cd97",
+    chartPaletteFills2Color: "#cdbfa8",
     chartPaletteFills3Color: c.text,
     chartPaletteStrokes1Color: c.paid,
-    chartPaletteStrokes2Color: "#d9cd97",
+    chartPaletteStrokes2Color: "#cdbfa8",
     chartPaletteStrokes3Color: c.text,
     gridRowHeight: 48,
     gridRowBorder: { width: 1, color: c.line },

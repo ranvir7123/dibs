@@ -1,5 +1,5 @@
 /*
-  The look of Dibs. Light only: a butter page, white cards, a black menu,
+  The look of Dibs. Light only: a soft sand page, white cards, a black menu,
   green for money that was paid, red only for blocked or stopped.
 
   One round sans font. Heavy, tight headings. Cards with 24px corners and
@@ -14,30 +14,30 @@
 
 :root {
   color-scheme: light;
-  --page: #fff3c4;                 /* butter */
-  --app: #fff3c4;
+  --page: #ebe3d6;                 /* soft sand */
+  --app: #ebe3d6;
   --card: #ffffff;
-  --inset: #fff9e2;                /* pale butter: quiet boxes inside white cards */
+  --inset: #f7f3ec;                /* pale sand: quiet boxes inside white cards */
   --wash: rgba(21, 19, 10, .06);   /* soft see-through tint: second buttons, pills */
   --wash-2: rgba(21, 19, 10, .10);
   --line: rgba(21, 19, 10, .08);   /* the few thin lines that are left */
   --text: #15130a;
-  --sec: #5a5437;                  /* second text */
-  --mute: #6f6847;                 /* small quiet text, still readable on butter */
+  --sec: #564e40;                  /* second text */
+  --mute: #655d4e;                 /* small quiet text, still readable on sand */
   --paid: #1f7a4d;                 /* money paid out */
   --paid-soft: #e3f2ea;
-  --held: #6f6847;                 /* money still locked in PayPal */
+  --held: #655d4e;                 /* money still locked in PayPal */
   --stop: #d6453d;                 /* blocked or failed: fills and icons */
   --stop-text: #b0322b;            /* the same red, dark enough for small words */
   --stop-soft: #fbe6e3;
   --soon: #ffe7a1;                 /* a job that ends soon */
   --soon-text: #6b4a00;
   --blue: #1f7a4d;                 /* the focus ring */
-  --orange: #6f6847;
+  --orange: #655d4e;
   --side: #15130a;                 /* the black menu */
-  --side-text: #fff3c4;
-  --side-mute: rgba(255, 243, 196, .62);
-  --side-on: rgba(255, 243, 196, .09);
+  --side-text: #ffffff;
+  --side-mute: rgba(255, 255, 255, .64);
+  --side-on: rgba(255, 255, 255, .09);
   --r-card: 24px;
   --r-in: 16px;
   --pill: 1000px;
@@ -75,7 +75,7 @@ h1, h2, h3, p, small, b, .kv, .sumline, .outcome, .tries > * { overflow-wrap: an
 .menu a em { margin-left: auto; font: 700 13px/1 var(--sans); font-style: normal; padding: 5px 9px; border-radius: var(--pill); background: rgba(21, 19, 10, .10); white-space: nowrap; }
 .menu a:not(.on) em { background: var(--side-on); }
 .me { margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 20px; background: var(--side-on); color: var(--side-text); text-decoration: none; transition: background .15s ease; }
-.me:hover { background: rgba(255, 243, 196, .15); }
+.me:hover { background: rgba(255, 255, 255, .15); }
 .me .avatar { background: var(--side-text); color: var(--side); }
 .me > span:not(.avatar) { min-width: 0; flex: 1; }
 .me b { display: block; font: 700 15px/20px var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -198,7 +198,7 @@ a.btn, a.pill { text-decoration: none; }
 .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .or-way .btn { width: 100%; }
 .head > .head-btns { display: flex; gap: 8px; flex-wrap: wrap; flex: none; }
-/* A fact row sitting straight on the butter page is white, not pale butter. */
+/* A fact row sitting straight on the sand page is white, not pale sand. */
 .stack > .kv { background: var(--card); padding: 14px 24px; }
 
 /* ================= Part 2: each screen ================= */
@@ -334,7 +334,7 @@ textarea.typed:focus-visible { border-color: var(--text); }
 .res-body.wide { grid-template-columns: 340px 1fr 300px; }
 .res-body.plain { grid-template-columns: 1fr 332px; }
 .res-body > * { min-width: 0; }
-.clip { position: relative; min-height: 372px; margin: 20px 0 20px 24px; border-radius: var(--r-in); overflow: hidden; color: #fbf7e6; background: radial-gradient(120% 80% at 30% 20%, #2b2a27 0%, #1b1b1a 55%, #111110 100%); display: flex; flex-direction: column; justify-content: space-between; padding: 12px; }
+.clip { position: relative; min-height: 372px; margin: 20px 0 20px 24px; border-radius: var(--r-in); overflow: hidden; color: #ffffff; background: radial-gradient(120% 80% at 30% 20%, #2b2a27 0%, #1b1b1a 55%, #111110 100%); display: flex; flex-direction: column; justify-content: space-between; padding: 12px; }
 .clip.alt { background: radial-gradient(120% 80% at 70% 25%, #2f2b24 0%, #1c1b19 55%, #111110 100%); }
 .clip.game { min-height: 0; aspect-ratio: 16 / 10; align-self: start; background: radial-gradient(110% 90% at 50% 30%, #2b2a27 0%, #1b1b1a 60%, #111110 100%); }
 .clip > * { position: relative; }
@@ -344,7 +344,7 @@ textarea.typed:focus-visible { border-color: var(--text); }
 .clip .scrub { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .22); margin-bottom: 10px; }
 .clip .scrub i { display: block; width: 4px; height: 9px; margin-top: -3px; border-radius: 2px; background: #fff; }
 .clip .mid { align-self: center; display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: var(--pill); background: rgba(10, 10, 10, .62); font-size: 14px; font-weight: 700; }
-.clip a.mid, .clip button.mid { color: #fbf7e6; text-decoration: none; border: 0; }
+.clip a.mid, .clip button.mid { color: #ffffff; text-decoration: none; border: 0; }
 .clip a.mid:hover { background: rgba(10, 10, 10, .82); }
 .clip video, .clip img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .clip.game video, .clip.game img { object-fit: contain; }

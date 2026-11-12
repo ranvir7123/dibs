@@ -15,7 +15,7 @@
     repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 2px, transparent 2px 9px),
     linear-gradient(135deg, #c9b79a 0%, #a8916f 55%, #8b7556 100%); }
 .picture::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 26px; background: repeating-linear-gradient(90deg, #8b7556 0 3px, transparent 3px 8px); opacity: .9; }
-.pictureTag { position: absolute; left: 16px; top: 16px; display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: 1000px; background: rgba(21,19,10,.72); color: #fff3c4; font-size: 13px; font-weight: 700; }
+.pictureTag { position: absolute; left: 16px; top: 16px; display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: 1000px; background: rgba(21,19,10,.72); color: #ffffff; font-size: 13px; font-weight: 700; }
 
 .body { display: flex; flex-direction: column; gap: 20px; padding: 36px; min-width: 0; }
 .name { font: 900 34px/1.1 var(--sans); letter-spacing: -0.035em; overflow-wrap: anywhere; text-wrap: balance; }
