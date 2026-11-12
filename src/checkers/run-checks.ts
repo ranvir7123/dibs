@@ -8,7 +8,7 @@ import { stat } from "node:fs/promises";
 import { and, asc, desc, eq, gte, isNotNull, like, ne } from "drizzle-orm";
 import { RecordingUnreadable } from "@/ai/frames";
 import { AiCannotOpen, isAiTrouble, waitingOnAiNote } from "@/ai/trouble";
-import { storedPageLinks } from "@/contract/links";
+import { storedPageLinks, tidyAddress } from "@/contract/links";
 import { formatCents } from "@/contract/money";
 import type { Check, CheckGroup, CheckReport, Job, JobCard, Measured, ResultStatus } from "@/contract/types";
 import { getDb } from "@/db/client";
@@ -445,6 +445,26 @@ async function findsAlreadyPaid(jobId: string, resultId: string): Promise<string
 }
 
 /**
+ * The addresses of pages already counted for OTHER workers on this job, in
+ * their tidy form. A page is paid once, and that is decided here by its
+ * address, not by AI. Check "item:N" on a result belongs to its Nth link.
+ */
+async function pagesAlreadyPaid(jobId: string, resultId: string): Promise<Set<string>> {
+  const db = await getDb();
+  const rows = await db
+    .select({ key: checks.key, handInUrl: results.handInUrl })
+    .from(checks)
+    .innerJoin(results, eq(checks.resultId, results.id))
+    .where(and(eq(results.jobId, jobId), ne(results.id, resultId), ne(results.status, "blocked"), eq(checks.passed, true), like(checks.key, "item:%")));
+  const paid = new Set<string>();
+  for (const row of rows) {
+    const link = storedPageLinks(row.handInUrl)[Number(row.key.slice("item:".length)) - 1];
+    if (link) paid.add(tidyAddress(link));
+  }
+  return paid;
+}
+
+/**
  * A handed-in file for a measured job. AI looks at a recording or a photo, or
  * reads a text file or a PDF, against the rules.
  */
@@ -510,18 +530,24 @@ async function checkLinks(out: Outcome, input: { resultId: string; job: Job; pos
   if (links.length === 0) throw new CannotCheck("No link was handed in. Please paste the links to the pages.");
 
   const read = await Promise.all(links.map((url) => getPageReader()(url).then((page) => ({ page }), (error: unknown) => ({ url, error: error instanceof Error ? error.message : "Dibs could not open this page." }))));
+  const countsItems = card.payRule.kind === "per_unit" && card.payRule.unit === "item";
+  const paidBefore = countsItems ? await pagesAlreadyPaid(job.id, input.resultId) : new Set<string>();
   const landed: string[] = [];
   const pages: PageToCheck[] = read.map((one) => {
     if ("error" in one) return one;
-    // Two links that lead to the very same page are one page, so only the first can count.
-    const before = landed.indexOf(one.page.finalUrl);
-    landed.push(one.page.finalUrl);
+    // Two links that lead to the same page are one page, so only the first can count. Addresses are
+    // compared in their tidy form, so "www.", capital letters, a "/" at the end or "?x=1" do not make a new page.
+    const place = tidyAddress(one.page.finalUrl);
+    const before = landed.indexOf(place);
+    landed.push(place);
     if (before >= 0) return { url: one.page.url, error: `This link leads to the same page as link ${before + 1}, so it is counted once.` };
+    if (paidBefore.has(place) || paidBefore.has(tidyAddress(one.page.url))) {
+      return { url: one.page.url, error: "This page was already counted and paid for another worker on this job.", alreadyPaid: true };
+    }
     return { url: one.page.url, title: one.page.title, text: one.page.text, cut: one.page.cut };
   });
   const opened = read.filter((one) => !("error" in one)).length;
 
-  const countsItems = card.payRule.kind === "per_unit" && card.payRule.unit === "item";
   const seen = await checkPages({
     pages,
     card,

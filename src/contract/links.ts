@@ -41,6 +41,21 @@ export function pageLinksFrom(pasted: string): string[] {
   return links;
 }
 
+/**
+ * One tidy form of a page's address, used to tell whether two links are the
+ * same page: small letters for the site's name, no "www.", no port when it is
+ * the usual one, no "/" at the end, and nothing after "?" or "#". The text
+ * itself is returned, in small letters, when it is not a web link.
+ */
+export function tidyAddress(link: string): string {
+  const url = webLink(link.trim());
+  if (!url) return link.trim().toLowerCase();
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  const usualPort = url.port === "" || (url.protocol === "https:" && url.port === "443") || (url.protocol === "http:" && url.port === "80");
+  const path = url.pathname.replace(/\/+$/, "");
+  return `${host}${usualPort ? "" : `:${url.port}`}${path}`;
+}
+
 /** The links kept in a result's hand-in text, one per line. */
 export function storedPageLinks(handInUrl: string | null): string[] {
   return (handInUrl ?? "").split(/\s+/).filter(Boolean);
